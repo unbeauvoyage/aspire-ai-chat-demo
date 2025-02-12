@@ -60,6 +60,11 @@ public static class ModelExtensions
 
     public static IResourceBuilder<LLMResource> WithAccessKey(this IResourceBuilder<LLMResource> builder, IResourceBuilder<ParameterResource> accessKey)
     {
+        if (!accessKey.Resource.Secret)
+        {
+            throw new InvalidOperationException("AccessKey must be a secret");
+        }
+
         builder.Resource.AccessKey = ReferenceExpression.Create($"{accessKey.Resource}");
         return builder;
     }
