@@ -1,7 +1,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 
-public static class Extensions
+public static class ModelExtensions
 {
     public static IResourceBuilder<LLMResource> AddModel(this IDistributedApplicationBuilder builder, string name)
     {
@@ -63,6 +63,9 @@ public static class Extensions
         builder.Resource.AccessKey = ReferenceExpression.Create($"{accessKey.Resource}");
         return builder;
     }
+
+    public static IResourceBuilder<IResourceWithConnectionString> AsConnectionString(this IResourceBuilder<LLMResource> builder)
+     => builder;
 }
 
 public class LLMResource(string name) : Resource(name), IResourceWithConnectionString
