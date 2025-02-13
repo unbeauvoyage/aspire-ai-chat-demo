@@ -14,9 +14,13 @@ public class SseResult(Func<CancellationToken, IAsyncEnumerable<string?>> factor
         {
             if (message is not null)
             {
-                await context.Response.WriteAsync($"data: {message}\n\n");
+                var escapedMessage = EscapeSseData(message);
+                await context.Response.WriteAsync($"data: {escapedMessage}\n\n");
                 await context.Response.Body.FlushAsync();
             }
         }
     }
+
+    private static string EscapeSseData(string data) =>
+        data.Replace("\n", "\\n"); // Escape newlines for SSE data
 }

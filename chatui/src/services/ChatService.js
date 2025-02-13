@@ -68,7 +68,7 @@ class ChatService {
                 buffer = parts.pop(); // Keep the last incomplete part in the buffer
                 for (let part of parts) {
                     if (part.startsWith('data: ')) {
-                        yield part.substring(6); // Remove 'data: ' prefix
+                        yield part.substring(6).replace(/\\n/g, '\n'); // Remove 'data: ' prefix and replace escaped newlines
                     }
                 }
             }
