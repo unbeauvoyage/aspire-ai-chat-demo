@@ -1,29 +1,15 @@
-using System.Runtime.CompilerServices;
-using Microsoft.Extensions.AI;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
 builder.AddChatClient("llm");
 
+builder.AddCosmosDbContext<AppDbContext>("conversations", "db");
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-app.MapPost("/api/chat", (IChatClient chatClient, ChatMessage m) =>
-{
-    async IAsyncEnumerable<string?> GetMessages([EnumeratorCancellation] CancellationToken ct)
-    {
-        await foreach (var update in chatClient.CompleteStreamingAsync(m.Text, cancellationToken: ct))
-        {
-            yield return update.Text;
-        }
-    }
-
-    return Results.Extensions.SseStream(GetMessages);
-});
+app.MapChatApi();
 
 app.Run();
-
-public record ChatMessage(string Text);
