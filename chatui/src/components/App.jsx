@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import ChatService from '../services/ChatService';
 
 const App = () => {
@@ -47,11 +48,11 @@ const App = () => {
         const userMessage = { id: Date.now(), sender: 'user', text: prompt };
         setMessages(prevMessages => [...prevMessages, userMessage]);
 
-        // Create a new bot message with empty text that will be updated as responses stream in
-        const botMessageId = Date.now() + 1;
+        // Show loading indicator
+        const loadingIndicatorId = Date.now() + 1;
         setMessages(prevMessages => [
             ...prevMessages,
-            { id: botMessageId, sender: 'assistant', text: '' }
+            { id: loadingIndicatorId, sender: 'assistant', text: 'Loading...', isLoading: true }
         ]);
 
         try {
@@ -59,19 +60,34 @@ const App = () => {
 
             setPrompt('');
 
+            let firstChunk = true;
             for await (const chunk of stream) {
-                setMessages(prev =>
-                    prev.map(msg =>
-                        msg.id === botMessageId ? { ...msg, text: msg.text + chunk } : msg
-                    )
-                );
+                if (firstChunk) {
+                    // Remove loading indicator and add the bot message with the first chunk
+                    setMessages(prev =>
+                        prev.filter(msg => msg.id !== loadingIndicatorId).concat({
+                            id: loadingIndicatorId,
+                            sender: 'assistant',
+                            text: chunk,
+                            isLoading: false
+                        })
+                    );
+                    firstChunk = false;
+                } else {
+                    // Update the bot message with subsequent chunks
+                    setMessages(prev =>
+                        prev.map(msg =>
+                            msg.id === loadingIndicatorId ? { ...msg, text: msg.text + chunk } : msg
+                        )
+                    );
+                }
             }
         } catch (error) {
             console.error('Streaming error:', error);
             // Optionally update the bot message with an error message
             setMessages(prev =>
                 prev.map(msg =>
-                    msg.id === botMessageId ? { ...msg, text: msg.text + '\n[Error in receiving response]' } : msg
+                    msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
                 )
             );
         }
@@ -100,29 +116,28 @@ const App = () => {
     return (
         <div style={{ display: 'flex', maxWidth: '900px', margin: '2rem auto', fontFamily: 'Arial, sans-serif' }}>
             <div style={{ width: '250px', flexShrink: 0, marginRight: '1rem' }}>
-                <h2>Chats</h2>
-                {loadingChats ? (
-                    <p>Loading chats...</p>
-                ) : (
-                    <ul style={{ listStyle: 'none', padding: 0 }}>
-                        {chats.map(chat => (
-                            <li
-                                key={chat.id}
-                                onClick={() => handleChatSelect(chat.id)}
-                                style={{
-                                    padding: '10px',
-                                    cursor: 'pointer',
-                                    backgroundColor: selectedChatId === chat.id ? '#007aff' : '#f9f9f9',
-                                    color: selectedChatId === chat.id ? '#fff' : '#000',
-                                    borderRadius: '5px',
-                                    marginBottom: '5px'
-                                }}
-                            >
-                                {chat.name}
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h2>Chats</h2>
+                    {loadingChats && <p>Loading...</p>}
+                </div>
+                <ul style={{ listStyle: 'none', padding: 0, flexGrow: 1 }}>
+                    {chats.map(chat => (
+                        <li
+                            key={chat.id}
+                            onClick={() => handleChatSelect(chat.id)}
+                            style={{
+                                padding: '10px',
+                                cursor: 'pointer',
+                                backgroundColor: selectedChatId === chat.id ? '#007aff' : '#f9f9f9',
+                                color: selectedChatId === chat.id ? '#fff' : '#000',
+                                borderRadius: '5px',
+                                marginBottom: '5px'
+                            }}
+                        >
+                            {chat.name}
+                        </li>
+                    ))}
+                </ul>
                 <form onSubmit={handleNewChatSubmit} style={{ marginTop: '1rem' }}>
                     <input
                         type="text"
@@ -185,7 +200,7 @@ const App = () => {
                                     maxWidth: '70%'
                                 }}
                             >
-                                {msg.text}
+                                <ReactMarkdown>{msg.text}</ReactMarkdown>
                             </div>
                         </div>
                     ))}
