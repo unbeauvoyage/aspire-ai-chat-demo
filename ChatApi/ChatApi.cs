@@ -74,9 +74,9 @@ public static class ChatExtensions
                 .Select(m => new ChatMessage(new(m.Role), m.Text))
                 .ToList();
 
-            async IAsyncEnumerable<string?> StreamMessages([EnumeratorCancellation] CancellationToken ct)
+            async IAsyncEnumerable<string?> StreamMessages([EnumeratorCancellation] CancellationToken token)
             {
-                await foreach (var update in chatClient.CompleteStreamingAsync(messages, cancellationToken: ct))
+                await foreach (var update in chatClient.CompleteStreamingAsync(messages, cancellationToken: token))
                 {
                     allChunks.Add(update);
                     yield return update.Text;
@@ -91,7 +91,7 @@ public static class ChatExtensions
                     Text = assistantMessage.Text!
                 });
 
-                await db.SaveChangesAsync();
+                await db.SaveChangesAsync(token);
             }
 
             return Results.Extensions.SseStream(StreamMessages);

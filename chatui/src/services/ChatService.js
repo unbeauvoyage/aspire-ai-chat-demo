@@ -40,6 +40,16 @@ class ChatService {
             body: JSON.stringify({ text: prompt })
         });
 
+        if (!response.ok) {
+            let errorMessage;
+            try {
+                errorMessage = await response.text();
+            } catch (e) {
+                errorMessage = response.statusText;
+            }
+            throw new Error(`Error sending prompt: ${errorMessage}`);
+        }
+
         if (!response.body) {
             throw new Error('ReadableStream not supported in this browser.');
         }
