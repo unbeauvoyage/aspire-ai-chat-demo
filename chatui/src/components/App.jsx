@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ChatService from '../services/ChatService';
+import './App.css'; // Import the CSS file
 
 const App = () => {
     const [messages, setMessages] = useState([]);
@@ -114,125 +115,57 @@ const App = () => {
     }, [messages]);
 
     return (
-        <div style={{ display: 'flex', maxWidth: '900px', margin: '2rem auto', fontFamily: 'Arial, sans-serif' }}>
-            <div style={{ width: '250px', flexShrink: 0, marginRight: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="app-container">
+            <div className="sidebar">
+                <div className="sidebar-header">
                     <h2>Chats</h2>
                     {loadingChats && <p>Loading...</p>}
                 </div>
-                <ul style={{ listStyle: 'none', padding: 0, flexGrow: 1 }}>
+                <ul className="chat-list">
                     {chats.map(chat => (
                         <li
                             key={chat.id}
                             onClick={() => handleChatSelect(chat.id)}
-                            style={{
-                                padding: '10px',
-                                cursor: 'pointer',
-                                backgroundColor: selectedChatId === chat.id ? '#007aff' : '#f9f9f9',
-                                color: selectedChatId === chat.id ? '#fff' : '#000',
-                                borderRadius: '5px',
-                                marginBottom: '5px'
-                            }}
+                            className={`chat-item ${selectedChatId === chat.id ? 'selected' : ''}`}
                         >
                             {chat.name}
                         </li>
                     ))}
                 </ul>
-                <form onSubmit={handleNewChatSubmit} style={{ marginTop: '1rem' }}>
+                <form onSubmit={handleNewChatSubmit} className="new-chat-form">
                     <input
                         type="text"
                         value={newChatName}
                         onChange={e => setNewChatName(e.target.value)}
                         placeholder="New chat name"
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            borderRadius: '20px',
-                            border: '1px solid #ccc',
-                            marginBottom: '10px',
-                            boxSizing: 'border-box'
-                        }}
+                        className="new-chat-input"
                     />
-                    <button
-                        type="submit"
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            borderRadius: '20px',
-                            border: 'none',
-                            background: '#007aff',
-                            color: '#fff',
-                            cursor: 'pointer'
-                        }}
-                    >
+                    <button type="submit" className="new-chat-button">
                         Create Chat
                     </button>
                 </form>
             </div>
-            <div style={{ flexGrow: 1 }}>
-                <h1 style={{ textAlign: 'center', color: '#333' }}>Chat with Our Bot</h1>
-                <div
-                    ref={messagesEndRef}
-                    style={{
-                        border: '1px solid #ccc',
-                        borderRadius: '8px',
-                        padding: '1rem',
-                        height: '400px',
-                        overflowY: 'auto',
-                        background: '#f9f9f9'
-                    }}
-                >
+            <div className="chat-container">
+                <h1 className="chat-header">Chat with Our Bot</h1>
+                <div ref={messagesEndRef} className="messages-container">
                     {messages.map(msg => (
-                        <div
-                            key={msg.id}
-                            style={{
-                                display: 'flex',
-                                justifyContent: msg.sender === 'assistant' ? 'flex-start' : 'flex-end',
-                                marginBottom: '1rem'
-                            }}
-                        >
-                            <div
-                                style={{
-                                    background: msg.sender === 'assistant' ? '#e5e5ea' : '#007aff',
-                                    color: msg.sender === 'assistant' ? '#000' : '#fff',
-                                    padding: '10px 15px',
-                                    borderRadius: '20px',
-                                    maxWidth: '70%'
-                                }}
-                            >
+                        <div key={msg.id} className={`message ${msg.sender}`}>
+                            <div className="message-content">
                                 <ReactMarkdown>{msg.text}</ReactMarkdown>
                             </div>
                         </div>
                     ))}
                 </div>
-                <form onSubmit={handleSubmit} style={{ display: 'flex', marginTop: '1rem' }}>
+                <form onSubmit={handleSubmit} className="message-form">
                     <input
                         type="text"
                         value={prompt}
                         onChange={e => setPrompt(e.target.value)}
                         placeholder="Enter your message..."
                         disabled={!selectedChatId}
-                        style={{
-                            flexGrow: 1,
-                            padding: '10px',
-                            borderRadius: '20px',
-                            border: '1px solid #ccc',
-                            marginRight: '10px',
-                            backgroundColor: !selectedChatId ? '#e0e0e0' : '#fff'
-                        }}
+                        className="message-input"
                     />
-                    <button
-                        type="submit"
-                        disabled={!selectedChatId}
-                        style={{
-                            padding: '10px 20px',
-                            borderRadius: '20px',
-                            border: 'none',
-                            background: !selectedChatId ? '#ccc' : '#007aff',
-                            color: '#fff',
-                            cursor: !selectedChatId ? 'not-allowed' : 'pointer'
-                        }}
-                    >
+                    <button type="submit" disabled={!selectedChatId} className="message-button">
                         Send
                     </button>
                 </form>
