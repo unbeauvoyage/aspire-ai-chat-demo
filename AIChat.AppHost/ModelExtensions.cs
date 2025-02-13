@@ -13,6 +13,7 @@ public static class ModelExtensions
                 .AddModel(name, "phi4");
         }
 
-        return builder.AddConnectionString(name);
+        // At publish time, we're going to use Azure OpenAI with gpt-4o
+        return builder.AddAzureOpenAI(name).AddDeployment(new("gpt-4o", "gpt-4o", "2024-05-13"));
     }
 }
