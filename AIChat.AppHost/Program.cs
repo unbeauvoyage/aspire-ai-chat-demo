@@ -1,18 +1,9 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var model = builder.ExecutionContext.IsPublishMode
-? builder.AddModel("llm")
-         .WithEndpoint(builder.AddParameter("modelep"))
-         .WithModelName("Phi-4")
-         .WithAccessKey(builder.AddParameter("modelkey", secret: true))
-         .AsConnectionString()
+// This is the AI model our application will use
+var model = builder.AddAIModel("llm");
 
-: builder.AddOllama("ollama")
-         .WithGPUSupport()
-         .WithDataVolume()
-         .WithLifetime(ContainerLifetime.Persistent)
-         .AddModel("llm", "phi4");
-
+// We use Cosmos DB for our conversation history
 var conversations = builder.AddAzureCosmosDB("cosmos")
                            .RunAsPreviewEmulator(e => e.WithDataExplorer().WithDataVolume())
                            .AddCosmosDatabase("db")
