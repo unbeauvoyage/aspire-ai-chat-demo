@@ -14,7 +14,7 @@ public static class ChatClientExtensions
             throw new InvalidOperationException($"Invalid connection string: {cs}");
         }
 
-        var httpKey = connectionName + "_http";
+        var httpKey = $"{connectionName}_http";
 
         builder.Services.AddHttpClient(httpKey, c =>
         {
