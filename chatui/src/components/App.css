@@ -109,6 +109,12 @@
     max-width: 70%;
 }
 
+.message-content pre {
+    white-space: pre-wrap; /* Wrap long lines */
+    word-wrap: break-word; /* Break long words */
+    overflow-x: auto; /* Add horizontal scroll if needed */
+}
+
 .message.user .message-content {
     background: #007aff;
     color: #fff;
