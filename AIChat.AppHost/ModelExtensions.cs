@@ -1,19 +1,52 @@
 
 public static class ModelExtensions
 {
-    public static IResourceBuilder<IResourceWithConnectionString> AddAIModel(this IDistributedApplicationBuilder builder, string name)
+    public static IResourceBuilder<AIModel> AddAIModel(this IDistributedApplicationBuilder builder, string name)
     {
-        if (builder.ExecutionContext.IsRunMode)
+        var model = new AIModel(name);
+        return builder.CreateResourceBuilder(model);
+    }
+
+    public static IResourceBuilder<AIModel> RunAsOllama(this IResourceBuilder<AIModel> builder, string model)
+    {
+        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
-            // In run mode, we're going to use ollama (hard code phi4 for this application)
-            return builder.AddOllama("ollama")
+            var ollamaModel = builder.ApplicationBuilder.AddOllama("ollama")
                 .WithGPUSupport()
                 .WithDataVolume()
                 .WithLifetime(ContainerLifetime.Persistent)
-                .AddModel(name, "phi4");
+                .AddModel(builder.Resource.Name, model);
+
+            ollamaModel.WithParentRelationship(builder.Resource);
+
+            builder.Resource.OllamaModelResource = ollamaModel.Resource;
         }
 
-        // At publish time, we're going to use Azure OpenAI with gpt-4o
-        return builder.AddAzureOpenAI(name).AddDeployment(new("gpt-4o", "gpt-4o", "2024-05-13"));
+        return builder;
+    }
+
+    public static IResourceBuilder<AIModel> PublishAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, string modelVersion)
+    {
+        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name)
+                .AddDeployment(new(modelName, modelName, modelVersion));
+
+            builder.Resource.AzureOpenAIModelResource = openAIModel.Resource;
+        }
+
+        return builder;
+    }
+
+    public class AIModel(string name) : Resource(name), IResourceWithConnectionString
+    {
+        internal OllamaModelResource? OllamaModelResource { get; set; }
+
+        internal AzureOpenAIResource? AzureOpenAIModelResource { get; set; }
+
+        public ReferenceExpression ConnectionStringExpression =>
+            OllamaModelResource?.ConnectionStringExpression
+            ?? AzureOpenAIModelResource?.ConnectionStringExpression
+            ?? throw new InvalidOperationException("No connection string available.");
     }
 }
