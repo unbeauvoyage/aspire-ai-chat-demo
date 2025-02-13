@@ -1,37 +1,9 @@
 
-using Microsoft.Extensions.DependencyInjection;
-
 public static class ModelExtensions
 {
     public static IResourceBuilder<LLMResource> AddModel(this IDistributedApplicationBuilder builder, string name)
     {
         var resource = new LLMResource(name);
-
-        builder.Eventing.Subscribe<BeforeStartEvent>((e, ct) =>
-        {
-            // TODO: Put some logic in there
-            var rns = e.Services.GetRequiredService<ResourceNotificationService>();
-
-            _ = Task.Run(async () =>
-            {
-                var endpoint = await resource.Endpoint!.GetValueAsync(default);
-                var accessKey = await resource.AccessKey!.GetValueAsync(default);
-
-                await rns.PublishUpdateAsync(resource, s => s with
-                {
-                    Properties = [
-                        new ResourcePropertySnapshot(CustomResourceKnownProperties.Source, resource.ModelName),
-                        new ResourcePropertySnapshot("Endpoint", endpoint),
-                        new ResourcePropertySnapshot("AccessKey", accessKey) { IsSensitive = true }
-                    ]
-                });
-
-                await builder.Eventing.PublishAsync(new ConnectionStringAvailableEvent(resource, e.Services));
-            });
-
-            return Task.CompletedTask;
-        });
-
         return builder.AddResource(resource).WithInitialState(new CustomResourceSnapshot
         {
             Properties = [],
