@@ -6,6 +6,7 @@ const App = () => {
     const [prompt, setPrompt] = useState('');
     const [chats, setChats] = useState([]);
     const [selectedChatId, setSelectedChatId] = useState(null);
+    const [loadingChats, setLoadingChats] = useState(true);
     const messagesEndRef = useRef(null);
     const [newChatName, setNewChatName] = useState('');
 
@@ -20,6 +21,8 @@ const App = () => {
                 setChats(data);
             } catch (error) {
                 console.error('Error fetching chats:', error);
+            } finally {
+                setLoadingChats(false);
             }
         };
 
@@ -82,6 +85,7 @@ const App = () => {
             const newChat = await chatService.createChat(newChatName);
             setChats(prevChats => [...prevChats, newChat]);
             setNewChatName('');
+            handleChatSelect(newChat.id);
         } catch (error) {
             console.error('Error creating new chat:', error);
         }
@@ -97,24 +101,28 @@ const App = () => {
         <div style={{ display: 'flex', maxWidth: '900px', margin: '2rem auto', fontFamily: 'Arial, sans-serif' }}>
             <div style={{ width: '250px', flexShrink: 0, marginRight: '1rem' }}>
                 <h2>Chats</h2>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {chats.map(chat => (
-                        <li
-                            key={chat.id}
-                            onClick={() => handleChatSelect(chat.id)}
-                            style={{
-                                padding: '10px',
-                                cursor: 'pointer',
-                                backgroundColor: selectedChatId === chat.id ? '#007aff' : '#f9f9f9',
-                                color: selectedChatId === chat.id ? '#fff' : '#000',
-                                borderRadius: '5px',
-                                marginBottom: '5px'
-                            }}
-                        >
-                            {chat.name}
-                        </li>
-                    ))}
-                </ul>
+                {loadingChats ? (
+                    <p>Loading chats...</p>
+                ) : (
+                    <ul style={{ listStyle: 'none', padding: 0 }}>
+                        {chats.map(chat => (
+                            <li
+                                key={chat.id}
+                                onClick={() => handleChatSelect(chat.id)}
+                                style={{
+                                    padding: '10px',
+                                    cursor: 'pointer',
+                                    backgroundColor: selectedChatId === chat.id ? '#007aff' : '#f9f9f9',
+                                    color: selectedChatId === chat.id ? '#fff' : '#000',
+                                    borderRadius: '5px',
+                                    marginBottom: '5px'
+                                }}
+                            >
+                                {chat.name}
+                            </li>
+                        ))}
+                    </ul>
+                )}
                 <form onSubmit={handleNewChatSubmit} style={{ marginTop: '1rem' }}>
                     <input
                         type="text"
