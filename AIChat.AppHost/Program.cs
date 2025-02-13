@@ -19,14 +19,14 @@ var conversations = builder.AddAzureCosmosDB("cosmos")
                            .AddContainer("conversations", "/id");
 
 var chatapi = builder.AddProject<Projects.ChatApi>("chatapi")
-       .WithReference(model)
-       .WaitFor(model)
-       .WithReference(conversations)
-       .WaitFor(conversations)
-       .PublishAsAzureContainerApp((infra, app) =>
-        {
-            app.Configuration.Ingress.AllowInsecure = true;
-        });
+                     .WithReference(model)
+                     .WaitFor(model)
+                     .WithReference(conversations)
+                     .WaitFor(conversations)
+                     .PublishAsAzureContainerApp((infra, app) =>
+                      {
+                          app.Configuration.Ingress.AllowInsecure = true;
+                      });
 
 builder.AddDockerfile("chatui", "../chatui")
        .WithHttpEndpoint(targetPort: 80, env: "PORT")
