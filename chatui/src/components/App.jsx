@@ -146,7 +146,6 @@ const App = () => {
                 </form>
             </div>
             <div className="chat-container">
-                <h1 className="chat-header">Chat with Our Bot</h1>
                 <div ref={messagesEndRef} className="messages-container">
                     {messages.map(msg => (
                         <div key={msg.id} className={`message ${msg.sender}`}>
