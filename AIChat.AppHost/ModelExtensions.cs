@@ -11,6 +11,11 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
+            if (builder.Resource.InnerResource is not null)
+            {
+                builder.ApplicationBuilder.Resources.Remove(builder.Resource.InnerResource);
+            }
+
             var ollamaModel = builder.ApplicationBuilder.AddOllama("ollama")
                 .WithGPUSupport()
                 .WithDataVolume()
@@ -19,7 +24,7 @@ public static class ModelExtensions
 
             ollamaModel.WithParentRelationship(builder.Resource);
 
-            builder.Resource.OllamaModelResource = ollamaModel.Resource;
+            builder.Resource.InnerResource = ollamaModel.Resource;
         }
 
         return builder;
@@ -29,24 +34,27 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
         {
+            if (builder.Resource.InnerResource is not null)
+            {
+                builder.ApplicationBuilder.Resources.Remove(builder.Resource.InnerResource);
+            }
+
             var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name)
                 .AddDeployment(new(modelName, modelName, modelVersion));
 
-            builder.Resource.AzureOpenAIModelResource = openAIModel.Resource;
+            builder.Resource.InnerResource = openAIModel.Resource;
         }
 
         return builder;
     }
+}
 
-    public class AIModel(string name) : Resource(name), IResourceWithConnectionString
-    {
-        internal OllamaModelResource? OllamaModelResource { get; set; }
+// A resource representing an AI model.
+public class AIModel(string name) : Resource(name), IResourceWithConnectionString
+{
+    internal IResourceWithConnectionString? InnerResource { get; set; }
 
-        internal AzureOpenAIResource? AzureOpenAIModelResource { get; set; }
-
-        public ReferenceExpression ConnectionStringExpression =>
-            OllamaModelResource?.ConnectionStringExpression
-            ?? AzureOpenAIModelResource?.ConnectionStringExpression
-            ?? throw new InvalidOperationException("No connection string available.");
-    }
+    public ReferenceExpression ConnectionStringExpression =>
+        InnerResource?.ConnectionStringExpression
+        ?? throw new InvalidOperationException("No connection string available.");
 }
