@@ -1,4 +1,6 @@
 
+using Microsoft.Extensions.DependencyInjection;
+
 public static class ModelExtensions
 {
     public static IResourceBuilder<AIModel> AddAIModel(this IDistributedApplicationBuilder builder, string name)
@@ -7,7 +9,7 @@ public static class ModelExtensions
         return builder.CreateResourceBuilder(model);
     }
 
-    public static IResourceBuilder<AIModel> RunAsOllama(this IResourceBuilder<AIModel> builder, string model)
+    public static IResourceBuilder<AIModel> RunAsOllama(this IResourceBuilder<AIModel> builder, string model, Action<IResourceBuilder<OllamaResource>>? configure = null)
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
@@ -16,13 +18,13 @@ public static class ModelExtensions
                 builder.ApplicationBuilder.Resources.Remove(builder.Resource.InnerResource);
             }
 
-            var ollamaModel = builder.ApplicationBuilder.AddOllama("ollama")
+            var ollama = builder.ApplicationBuilder.AddOllama("ollama")
                 .WithGPUSupport()
-                .WithDataVolume()
-                .WithLifetime(ContainerLifetime.Persistent)
-                .AddModel(builder.Resource.Name, model);
+                .WithDataVolume();
 
-            ollamaModel.WithParentRelationship(builder.Resource);
+            configure?.Invoke(ollama);
+
+            var ollamaModel = ollama.AddModel(builder.Resource.Name, model);
 
             builder.Resource.InnerResource = ollamaModel.Resource;
         }
@@ -30,7 +32,7 @@ public static class ModelExtensions
         return builder;
     }
 
-    public static IResourceBuilder<AIModel> PublishAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, string modelVersion)
+    public static IResourceBuilder<AIModel> PublishAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, string modelVersion, Action<IResourceBuilder<AzureOpenAIResource>>? configure = null)
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
         {
@@ -41,6 +43,8 @@ public static class ModelExtensions
 
             var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name)
                 .AddDeployment(new(modelName, modelName, modelVersion));
+
+            configure?.Invoke(openAIModel);
 
             builder.Resource.InnerResource = openAIModel.Resource;
         }

@@ -2,7 +2,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 // This is the AI model our application will use
 var model = builder.AddAIModel("llm")
-                   .RunAsOllama("phi4")
+                   .RunAsOllama("phi4", c => c.WithLifetime(ContainerLifetime.Persistent))
                    .PublishAsAzureOpenAI("gpt-4o", "2024-05-13");
 
 // We use Cosmos DB for our conversation history
