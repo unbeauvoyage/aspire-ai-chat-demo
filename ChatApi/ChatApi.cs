@@ -22,13 +22,10 @@ public static class ChatExtensions
                 return Results.NotFound();
             }
 
-            return Results.Ok(from m in conversation.Messages
-                              select new
-                              {
-                                  id = m.Id,
-                                  sender = m.Role,
-                                  text = m.Text
-                              });
+            var clientMessages = from m in conversation.Messages
+                                 select new ClientMessage(m.Id, m.Role, m.Text);
+
+            return Results.Ok(clientMessages);
         });
 
         group.MapPost("/", async (NewConversation newConversation, AppDbContext db) =>
@@ -102,3 +99,5 @@ public static class ChatExtensions
 public record Prompt(string Text);
 
 public record NewConversation(string Name);
+
+public record ClientMessage(Guid Id, string Sender, string Text);
