@@ -48,9 +48,9 @@ public static class ChatExtensions
             return Results.Created($"/api/chats/{conversation.Id}", conversation);
         });
 
-        group.MapPost("/{id}", async (Guid id, AppDbContext db, IChatClient chatClient, Prompt prompt) =>
+        group.MapPost("/{id}", async (Guid id, AppDbContext db, IChatClient chatClient, Prompt prompt, CancellationToken token) =>
         {
-            var conversation = await db.Conversations.FindAsync(id);
+            var conversation = await db.Conversations.FindAsync(id, token);
 
             if (conversation is null)
             {
@@ -71,27 +71,35 @@ public static class ChatExtensions
                 .Select(m => new ChatMessage(new(m.Role), m.Text))
                 .ToList();
 
-            async IAsyncEnumerable<string?> StreamMessages([EnumeratorCancellation] CancellationToken token)
+            var assistantReply = new ConversationChatMessage
+            {
+                Id = Guid.CreateVersion7(),
+                Role = ChatRole.Assistant.Value,
+                Text = string.Empty
+            };
+
+            conversation.Messages.Add(assistantReply);
+            await db.SaveChangesAsync(token);
+
+            async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
             {
                 await foreach (var update in chatClient.CompleteStreamingAsync(messages, cancellationToken: token))
                 {
                     allChunks.Add(update);
-                    yield return update.Text;
+
+                    yield return new ClientMessageFragment(assistantReply.Id, update.Text!);
+                    await Task.Yield();
                 }
 
                 var assistantMessage = allChunks.ToChatCompletion().Message;
 
-                conversation.Messages.Add(new()
-                {
-                    Id = Guid.CreateVersion7(),
-                    Role = assistantMessage.Role.Value,
-                    Text = assistantMessage.Text!
-                });
+
+                assistantReply.Text = assistantMessage.Text!;
 
                 await db.SaveChangesAsync(token);
             }
 
-            return Results.Extensions.SseStream(StreamMessages);
+            return Results.Ok(StreamMessages());
         });
     }
 }
@@ -101,3 +109,5 @@ public record Prompt(string Text);
 public record NewConversation(string Name);
 
 public record ClientMessage(Guid Id, string Sender, string Text);
+
+public record ClientMessageFragment(Guid Id, string Text);

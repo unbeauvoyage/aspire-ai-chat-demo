@@ -1,3 +1,5 @@
+import { streamJsonValues } from './stream';
+
 class ChatService {
     constructor(backendUrl) {
         this.backendUrl = backendUrl;
@@ -54,24 +56,8 @@ class ChatService {
             throw new Error('ReadableStream not supported in this browser.');
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let done = false;
-        let buffer = '';
-
-        while (!done) {
-            const { value, done: streamDone } = await reader.read();
-            done = streamDone;
-            if (value) {
-                buffer += decoder.decode(value, { stream: true });
-                let parts = buffer.split('\n\n');
-                buffer = parts.pop(); // Keep the last incomplete part in the buffer
-                for (let part of parts) {
-                    if (part.startsWith('data: ')) {
-                        yield part.substring(6).replace(/\\n/g, '\n'); // Remove 'data: ' prefix and replace escaped newlines
-                    }
-                }
-            }
+        for await (const value of streamJsonValues(response)) {
+            yield value.text;
         }
     }
 }

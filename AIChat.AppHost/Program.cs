@@ -21,9 +21,9 @@ var chatapi = builder.AddProject<Projects.ChatApi>("chatapi")
                           app.Configuration.Ingress.AllowInsecure = true;
                       });
 
-builder.AddDockerfile("chatui", "../chatui")
-       .WithHttpEndpoint(targetPort: 80, env: "PORT")
-       .WithCaddyUpstream(chatapi.GetEndpoint("http"))
+builder.AddNpmApp("chatui", "../chatui")
+       .WithHttpEndpoint(env: "PORT")
+       .WithReverseProxy(chatapi.GetEndpoint("http"))
        .WithExternalHttpEndpoints()
        .WithOtlpExporter();
 
