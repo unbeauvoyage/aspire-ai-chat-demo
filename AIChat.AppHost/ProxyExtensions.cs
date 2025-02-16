@@ -7,10 +7,10 @@ public static class ProxyExtensions
             return builder.WithEnvironment("BACKEND_URL", upstreamEndpoint);
         }
 
-        return builder.PublishAsDockerFile(c => c.WithCaddyReverseProxy(upstreamEndpoint));
+        return builder.PublishAsDockerFile(c => c.WithReverseProxy(upstreamEndpoint));
     }
 
-    public static IResourceBuilder<ContainerResource> WithCaddyReverseProxy(this IResourceBuilder<ContainerResource> builder, EndpointReference upstreamEndpoint)
+    public static IResourceBuilder<ContainerResource> WithReverseProxy(this IResourceBuilder<ContainerResource> builder, EndpointReference upstreamEndpoint)
     {
         // Caddy listens on port 80
         builder.WithEndpoint("http", e => e.TargetPort = 80);
