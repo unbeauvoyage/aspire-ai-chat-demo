@@ -19,7 +19,6 @@ public static class ModelExtensions
             }
 
             var ollama = builder.ApplicationBuilder.AddOllama("ollama")
-                .WithGPUSupport()
                 .WithDataVolume();
 
             configure?.Invoke(ollama);

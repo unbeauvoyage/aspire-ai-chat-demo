@@ -5,7 +5,7 @@ Aspire AI Chat is a full-stack chat sample that combines modern technologies to 
 ## High-Level Overview
 
 - **Backend API:**  
-  The backend is built with **ASP.NET Core** and interacts with an LLM using **Microsoft.Extensions.AI**. It leverages `IChatClient` to abstract the interaction between the API and the model. Chat responses are streamed back to the client using **Server-Sent Events (SSE)**.
+  The backend is built with **ASP.NET Core** and interacts with an LLM using **Microsoft.Extensions.AI**. It leverages `IChatClient` to abstract the interaction between the API and the model. Chat responses are streamed back to the client using stream JSON array responses.
 
 - **Data & Persistence:**  
   Uses **Entity Framework Core** with **CosmosDB** for flexible, cloud-based NoSQL storage. This project utilizes the **new preview CosmosDB emulator** for efficient local development.
