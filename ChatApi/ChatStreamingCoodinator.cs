@@ -51,7 +51,7 @@ public class ChatStreamingCoodinator(
             }
             catch (Exception ex)
             {
-                var fragment = new ClientMessageFragment(assistantReplyId, 0, "Error streaming message");
+                var fragment = new ClientMessageFragment(assistantReplyId, allChunks.Count + 1, "Error streaming message");
 
                 lock (backlog)
                 {
