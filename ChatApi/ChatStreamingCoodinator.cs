@@ -113,19 +113,8 @@ public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactor
             }
         }
 
-        var latestSeen = -1;
-
         await foreach (var message in channel.Reader.ReadAllAsync())
         {
-            if (message.Index > latestSeen)
-            {
-                latestSeen = message.Index;
-            }
-            else
-            {
-                continue;
-            }
-
             yield return message;
         }
 
