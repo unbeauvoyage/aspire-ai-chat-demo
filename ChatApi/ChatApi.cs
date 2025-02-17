@@ -27,11 +27,11 @@ public static class ChatExtensions
             return Results.Ok(clientMessages);
         });
 
-        group.MapGet("/stream/{id}", (Guid id, ChatStreamingCoodinator streaming, CancellationToken token) =>
+        group.MapPost("/stream/{id}", (Guid id, StreamContext streamContext, ChatStreamingCoodinator streaming, CancellationToken token) =>
         {
             async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
             {
-                await foreach (var message in streaming.GetMessageStream(id).WithCancellation(token))
+                await foreach (var message in streaming.GetMessageStream(id, streamContext.LastMessageId).WithCancellation(token))
                 {
                     yield return message;
                     await Task.Yield();
@@ -121,3 +121,5 @@ public record NewConversation(string Name);
 public record ClientMessage(Guid Id, string Sender, string Text);
 
 public record ClientMessageFragment(Guid Id, int Index, string Text);
+
+public record StreamContext(Guid? LastMessageId);

@@ -82,9 +82,9 @@ public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactor
         });
     }
 
-    public async IAsyncEnumerable<ClientMessageFragment> GetMessageStream(Guid conversationId)
+    public async IAsyncEnumerable<ClientMessageFragment> GetMessageStream(Guid conversationId, Guid? lastMessageId)
     {
-        logger.LogInformation("Getting streaming message for conversation {ConversationId}", conversationId);
+        logger.LogInformation("Getting message stream for conversation {ConversationId}, {LastMessageId}", conversationId, lastMessageId);
 
         var channel = Channel.CreateUnbounded<ClientMessageFragment>();
 
@@ -115,6 +115,11 @@ public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactor
 
         await foreach (var message in channel.Reader.ReadAllAsync())
         {
+            if (message.Id == lastMessageId)
+            {
+                continue;
+            }
+
             yield return message;
         }
 

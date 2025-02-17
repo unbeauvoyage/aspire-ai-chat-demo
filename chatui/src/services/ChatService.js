@@ -35,8 +35,11 @@ class ChatService {
         return await response.json();
     }
 
-    async *stream(id, abortController) {
+    async *stream(id, lastMessageId, abortController) {
         const response = await fetch(`${this.backendUrl}/chat/stream/${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lastMessageId: lastMessageId }),
             signal: abortController.signal
         });
         if (!response.ok) {

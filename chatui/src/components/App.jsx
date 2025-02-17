@@ -56,8 +56,17 @@ const App = () => {
 
     const handleChatSelect = async (chatId) => {
         setSelectedChatId(chatId);
+
+        var lastMessageId = null;
+
         try {
             const data = await chatService.getChatMessages(chatId);
+
+            // Get the last message id from the chat, only if it's 
+            // the assistant's message and it's empty
+            const lastMessage = data[data.length - 1];
+            lastMessageId = lastMessage && lastMessage.sender === 'assistant' && lastMessage.text ? lastMessage.id : null;
+
             setMessages(data);
         } catch (error) {
             console.error('Error fetching chat messages:', error);
@@ -70,9 +79,9 @@ const App = () => {
             abortControllerRef.current = new AbortController();
 
             try {
-                const stream = chatService.stream(id, abortControllerRef.current);
+                const stream = chatService.stream(id, lastMessageId, abortControllerRef.current);
                 for await (const { id, text } of stream) {
-                    console.debug('Received chunk:', text);
+                    console.debug('Received chunk:', id, text);
 
                     updateMessageById(id, text);
                 }
@@ -170,7 +179,7 @@ const App = () => {
                             className={`chat-item ${selectedChatId === chat.id ? 'selected' : ''}`}
                         >
                             <span className="chat-name">{chat.name}</span>
-                            <button 
+                            <button
                                 className="delete-chat-button"
                                 onClick={(e) => handleDeleteChat(e, chat.id)}
                                 title="Delete chat"
