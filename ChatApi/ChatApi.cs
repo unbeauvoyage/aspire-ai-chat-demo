@@ -82,17 +82,7 @@ public static class ChatExtensions
                 .Select(m => new ChatMessage(new(m.Role), m.Text))
                 .ToList();
 
-            var assistantReply = new ConversationChatMessage
-            {
-                Id = Guid.CreateVersion7(),
-                Role = ChatRole.Assistant.Value,
-                Text = string.Empty
-            };
-
-            conversation.Messages.Add(assistantReply);
-            await db.SaveChangesAsync(token);
-
-            streaming.AddStreamingMessage(id, assistantReply.Id, messages);
+            streaming.AddStreamingMessage(id, Guid.CreateVersion7(), messages);
 
             return Results.Ok();
         });

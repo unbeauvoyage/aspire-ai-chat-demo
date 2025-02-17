@@ -3,7 +3,10 @@ using System.Threading.Channels;
 using Microsoft.Extensions.AI;
 
 
-public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactory scopeFactory, ILogger<ChatStreamingCoodinator> logger)
+public class ChatStreamingCoodinator(
+    IChatClient chatClient,
+    IServiceScopeFactory scopeFactory,
+    ILogger<ChatStreamingCoodinator> logger)
 {
     private readonly ConcurrentDictionary<Guid, List<ClientMessageFragment>> _cache = [];
     private event Action<Guid, ClientMessageFragment>? OnMessage;
@@ -12,19 +15,19 @@ public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactor
     {
         logger.LogInformation("Adding streaming message for conversation {ConversationId}", conversationId);
 
-        async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
+        async Task StreamMessages()
         {
+            var allChunks = new List<StreamingChatCompletionUpdate>();
+
+            var backlog = _cache.GetOrAdd(conversationId, _ => []);
+
+            lock (backlog)
+            {
+                backlog.Clear();
+            }
+
             try
             {
-                var allChunks = new List<StreamingChatCompletionUpdate>();
-
-                var backlog = _cache.GetOrAdd(conversationId, _ => []);
-
-                lock (backlog)
-                {
-                    backlog.Clear();
-                }
-
                 logger.LogInformation("Streaming message for conversation {ConversationId}", conversationId);
 
                 await foreach (var update in chatClient.CompleteStreamingAsync(messages))
@@ -45,7 +48,22 @@ public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactor
                 }
 
                 logger.LogInformation("Full message received for conversation {ConversationId}", conversationId);
+            }
+            catch (Exception ex)
+            {
+                var fragment = new ClientMessageFragment(assistantReplyId, 0, "Error streaming message");
 
+                lock (backlog)
+                {
+                    backlog.Add(fragment);
+                }
+
+                OnMessage?.Invoke(conversationId, fragment);
+
+                logger.LogError(ex, "Error streaming message for conversation {ConversationId}", conversationId);
+            }
+            finally
+            {
                 var fullMessage = allChunks.ToChatCompletion().Message;
 
                 await using var scope = scopeFactory.CreateAsyncScope();
@@ -53,33 +71,22 @@ public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactor
 
                 var conversation = await db.Conversations.FindAsync(conversationId);
 
-                if (conversation is null)
+                if (conversation is not null)
                 {
-                    yield break;
+                    var assistantMessage = conversation.Messages.Find(m => m.Id == assistantReplyId);
+
+                    if (assistantMessage is not null)
+                    {
+                        assistantMessage.Text = fullMessage.Text!;
+
+                        await db.SaveChangesAsync();
+                    }
                 }
-
-                var assistantMessage = conversation.Messages.Find(m => m.Id == assistantReplyId);
-
-                if (assistantMessage is null)
-                {
-                    yield break;
-                }
-
-                assistantMessage.Text = fullMessage.Text!;
-
-                await db.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error streaming message for conversation {ConversationId}", conversationId);
             }
         }
 
         // TODO: Make sure there's one stream per conversation
-        _ = Task.Run(async () =>
-        {
-            await foreach (var _ in StreamMessages()) { }
-        });
+        _ = StreamMessages();
     }
 
     public async IAsyncEnumerable<ClientMessageFragment> GetMessageStream(Guid conversationId, Guid? lastMessageId)
@@ -101,7 +108,7 @@ public class ChatStreamingCoodinator(IChatClient chatClient, IServiceScopeFactor
 
         OnMessage += WriteToChannel;
 
-        // REVIEW: You can get dupes
+        // TODO: Make sure we don't return duplicate messages
         if (_cache.TryGetValue(conversationId, out var backlog))
         {
             lock (backlog)
