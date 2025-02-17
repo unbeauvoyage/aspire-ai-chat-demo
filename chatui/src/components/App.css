@@ -35,11 +35,39 @@
     color: #000;
     border-radius: 5px;
     margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .chat-item.selected {
     background-color: #007aff;
     color: #fff;
+}
+
+.chat-name {
+    flex-grow: 1;
+    margin-right: 8px;
+}
+
+.delete-chat-button {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: opacity 0.2s ease;
+}
+
+.chat-item:hover .delete-chat-button {
+    opacity: 1;
+}
+
+.delete-chat-button:hover {
+    color: #ff4444;
 }
 
 .new-chat-form {

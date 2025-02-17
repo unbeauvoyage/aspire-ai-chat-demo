@@ -96,6 +96,21 @@ public static class ChatExtensions
 
             return Results.Ok();
         });
+
+        group.MapDelete("/{id}", async (Guid id, AppDbContext db) =>
+        {
+            var conversation = await db.Conversations.FindAsync(id);
+
+            if (conversation is null)
+            {
+                return Results.NotFound();
+            }
+
+            db.Conversations.Remove(conversation);
+            await db.SaveChangesAsync();
+
+            return Results.Ok();
+        });
     }
 }
 

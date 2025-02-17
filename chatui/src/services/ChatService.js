@@ -69,6 +69,16 @@ class ChatService {
             throw new Error(`Error sending prompt: ${errorMessage}`);
         }
     }
+
+    async deleteChat(id) {
+        const response = await fetch(`${this.backendUrl}/chat/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete chat');
+        }
+    }
 }
 
 export default ChatService;

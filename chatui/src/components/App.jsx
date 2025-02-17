@@ -135,6 +135,20 @@ const App = () => {
         }
     };
 
+    const handleDeleteChat = async (e, chatId) => {
+        e.stopPropagation();
+        try {
+            await chatService.deleteChat(chatId);
+            setChats(prevChats => prevChats.filter(chat => chat.id !== chatId));
+            if (selectedChatId === chatId) {
+                setSelectedChatId(null);
+                setMessages([]);
+            }
+        } catch (error) {
+            console.error('Error deleting chat:', error);
+        }
+    };
+
     useEffect(() => {
         if (messagesEndRef.current) {
             messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
@@ -155,7 +169,14 @@ const App = () => {
                             onClick={() => handleChatSelect(chat.id)}
                             className={`chat-item ${selectedChatId === chat.id ? 'selected' : ''}`}
                         >
-                            {chat.name}
+                            <span className="chat-name">{chat.name}</span>
+                            <button 
+                                className="delete-chat-button"
+                                onClick={(e) => handleDeleteChat(e, chat.id)}
+                                title="Delete chat"
+                            >
+                                ×
+                            </button>
                         </li>
                     ))}
                 </ul>
