@@ -35,7 +35,24 @@ class ChatService {
         return await response.json();
     }
 
-    async *sendPrompt(id, prompt) {
+    async *stream(id, abortController) {
+        const response = await fetch(`${this.backendUrl}/chat/stream/${id}`, {
+            signal: abortController.signal
+        });
+        if (!response.ok) {
+            throw new Error('Error fetching chat stream');
+        }
+
+        if (!response.body) {
+            throw new Error('ReadableStream not supported in this browser.');
+        }
+
+        for await (const value of streamJsonValues(response, abortController.signal)) {
+            yield { id: value.id, text: value.text };
+        }
+    }
+
+    async sendPrompt(id, prompt) {
         const response = await fetch(`${this.backendUrl}/chat/${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -50,14 +67,6 @@ class ChatService {
                 errorMessage = response.statusText;
             }
             throw new Error(`Error sending prompt: ${errorMessage}`);
-        }
-
-        if (!response.body) {
-            throw new Error('ReadableStream not supported in this browser.');
-        }
-
-        for await (const value of streamJsonValues(response)) {
-            yield { id: value.id, text: value.text };
         }
     }
 }

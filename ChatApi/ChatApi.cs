@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 
@@ -28,6 +27,20 @@ public static class ChatExtensions
             return Results.Ok(clientMessages);
         });
 
+        group.MapGet("/stream/{id}", (Guid id, ChatStreamingCoodinator streaming, CancellationToken token) =>
+        {
+            async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
+            {
+                await foreach (var message in streaming.GetMessageStream(id).WithCancellation(token))
+                {
+                    yield return message;
+                    await Task.Yield();
+                }
+            }
+
+            return StreamMessages();
+        });
+
         group.MapPost("/", async (NewConversation newConversation, AppDbContext db) =>
         {
             if (string.IsNullOrWhiteSpace(newConversation.Name))
@@ -48,7 +61,7 @@ public static class ChatExtensions
             return Results.Created($"/api/chats/{conversation.Id}", conversation);
         });
 
-        group.MapPost("/{id}", async (Guid id, AppDbContext db, IChatClient chatClient, Prompt prompt, CancellationToken token) =>
+        group.MapPost("/{id}", async (Guid id, AppDbContext db, IChatClient chatClient, Prompt prompt, CancellationToken token, ChatStreamingCoodinator streaming) =>
         {
             var conversation = await db.Conversations.FindAsync(id, token);
 
@@ -63,8 +76,6 @@ public static class ChatExtensions
                 Role = ChatRole.User.Value,
                 Text = prompt.Text
             });
-
-            var allChunks = new List<StreamingChatCompletionUpdate>();
 
             // This is inefficient
             var messages = conversation.Messages
@@ -81,28 +92,9 @@ public static class ChatExtensions
             conversation.Messages.Add(assistantReply);
             await db.SaveChangesAsync(token);
 
-            async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
-            {
-                await foreach (var update in chatClient.CompleteStreamingAsync(messages, cancellationToken: token))
-                {
-                    allChunks.Add(update);
+            streaming.AddStreamingMessage(id, assistantReply.Id, messages);
 
-                    if (update.Text is not null)
-                    {
-                        yield return new ClientMessageFragment(assistantReply.Id, update.Text);
-                        await Task.Yield();
-                    }
-                }
-
-                var assistantMessage = allChunks.ToChatCompletion().Message;
-
-
-                assistantReply.Text = assistantMessage.Text!;
-
-                await db.SaveChangesAsync(token);
-            }
-
-            return Results.Ok(StreamMessages());
+            return Results.Ok();
         });
     }
 }
@@ -113,4 +105,4 @@ public record NewConversation(string Name);
 
 public record ClientMessage(Guid Id, string Sender, string Text);
 
-public record ClientMessageFragment(Guid Id, string Text);
+public record ClientMessageFragment(Guid Id, int Index, string Text);

@@ -10,8 +10,8 @@ var model = builder.AddAIModel("llm")
                    })
                    // Uncomment to use OpenAI instead in local dev, but requires an OpenAI API key
                    // in Parameters:openaikey section of configuration (use user secrets)
-                   // .RunAsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true))
-                   .PublishAsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true));
+                   .AsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true));
+                   // .PublishAsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true));
                    // Uncomment to use Azure OpenAI instead in local dev, but requires an Azure OpenAI API key
                    // .PublishAsAzureOpenAI("gpt-4o", "2024-05-13", );
 
@@ -31,7 +31,8 @@ var chatapi = builder.AddProject<Projects.ChatApi>("chatapi")
                           app.Configuration.Ingress.AllowInsecure = true;
                       });
 
-builder.AddDockerfile("chatui", "../chatui")
+builder.AddNpmApp("chatui", "../chatui")
+       .WithNpmPackageInstallation()
        .WithHttpEndpoint(env: "PORT")
        .WithReverseProxy(chatapi.GetEndpoint("http"))
        .WithExternalHttpEndpoints()

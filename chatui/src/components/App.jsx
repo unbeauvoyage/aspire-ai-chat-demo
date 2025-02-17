@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ChatService from '../services/ChatService';
-import './App.css'; // Import the CSS file
+import './App.css';
+
+const loadingIndicatorId = 'loading-indicator';
 
 const App = () => {
     const [messages, setMessages] = useState([]);
@@ -11,6 +13,7 @@ const App = () => {
     const [loadingChats, setLoadingChats] = useState(true);
     const messagesEndRef = useRef(null);
     const [newChatName, setNewChatName] = useState('');
+    const abortControllerRef = useRef(null);
 
     const backendUrl = '/api';
     const chatService = new ChatService(backendUrl);
@@ -31,6 +34,26 @@ const App = () => {
         fetchChats();
     }, []);
 
+    const updateMessageById = (id, newText) => {
+        setMessages(prevMessages => {
+            const existingMessage = prevMessages.find(msg => msg.id === id);
+            if (existingMessage) {
+                return prevMessages.map(msg =>
+                    msg.id === id ? { ...msg, text: msg.text + newText, isLoading: false } : msg
+                );
+            } else {
+                return prevMessages
+                    .filter(msg => msg.id !== loadingIndicatorId)
+                    .concat({
+                        id,
+                        sender: 'assistant',
+                        text: newText,
+                        isLoading: false
+                    });
+            }
+        });
+    };
+
     const handleChatSelect = async (chatId) => {
         setSelectedChatId(chatId);
         try {
@@ -39,14 +62,33 @@ const App = () => {
         } catch (error) {
             console.error('Error fetching chat messages:', error);
         }
-    };
 
-    const updateMessageById = (id, newText) => {
-        setMessages(prevMessages =>
-            prevMessages.map(msg =>
-                msg.id === id ? { ...msg, text: msg.text + newText, isLoading: false } : msg
-            )
-        );
+        const streamChat = async (id) => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            abortControllerRef.current = new AbortController();
+
+            try {
+                const stream = chatService.stream(id, abortControllerRef.current);
+                for await (const { id, text } of stream) {
+                    console.debug('Received chunk:', text);
+
+                    updateMessageById(id, text);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Streaming error:', error);
+                    setMessages(prev =>
+                        prev.map(msg =>
+                            msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
+                        )
+                    );
+                }
+            }
+        };
+
+        streamChat(chatId);
     };
 
     const handleSubmit = async (e) => {
@@ -58,35 +100,16 @@ const App = () => {
         setMessages(prevMessages => [...prevMessages, userMessage]);
 
         // Show loading indicator
-        const loadingIndicatorId = Date.now() + 1;
         setMessages(prevMessages => [
             ...prevMessages,
             { id: loadingIndicatorId, sender: 'assistant', text: 'Loading...', isLoading: true }
         ]);
 
         try {
-            const stream = chatService.sendPrompt(selectedChatId, prompt);
+            chatService.sendPrompt(selectedChatId, prompt);
 
             setPrompt('');
 
-            let firstChunk = true;
-            for await (const { id, text } of stream) {
-                if (firstChunk) {
-                    // Replace the client-generated id with the server-generated id
-                    setMessages(prev =>
-                        prev.filter(msg => msg.id !== loadingIndicatorId).concat({
-                            id,
-                            sender: 'assistant',
-                            text,
-                            isLoading: false
-                        })
-                    );
-                    firstChunk = false;
-                } else {
-                    // Update the bot message with subsequent chunks
-                    updateMessageById(id, text);
-                }
-            }
         } catch (error) {
             console.error('Streaming error:', error);
             // Optionally update the bot message with an error message

@@ -1,4 +1,4 @@
-async function* streamJsonValues(response) {
+async function* streamJsonValues(response, signal) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -14,8 +14,17 @@ async function* streamJsonValues(response) {
         return start;
     }
 
+    // Handle the abort event
+    signal.addEventListener('abort', () => {
+        reader.cancel();
+    });
+
     // Process incoming chunks repeatedly.
     while (true) {
+        if (signal.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });

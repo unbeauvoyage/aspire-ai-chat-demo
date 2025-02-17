@@ -6,6 +6,8 @@ builder.AddChatClient("llm");
 
 builder.AddCosmosDbContext<AppDbContext>("conversations", "db");
 
+builder.Services.AddSingleton<ChatStreamingCoodinator>();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
