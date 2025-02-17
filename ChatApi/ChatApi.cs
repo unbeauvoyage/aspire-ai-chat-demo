@@ -77,6 +77,9 @@ public static class ChatExtensions
                 Text = prompt.Text
             });
 
+            // Actually save conversation history
+            await db.SaveChangesAsync(token);
+
             // This is inefficient
             var messages = conversation.Messages
                 .Select(m => new ChatMessage(new(m.Role), m.Text))
