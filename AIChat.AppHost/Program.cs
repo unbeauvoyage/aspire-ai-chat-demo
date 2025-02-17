@@ -11,7 +11,9 @@ var model = builder.AddAIModel("llm")
                    // Uncomment to use OpenAI instead in local dev, but requires an OpenAI API key
                    // in Parameters:openaikey section of configuration (use user secrets)
                    // .RunAsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true))
-                   .PublishAsAzureOpenAI("gpt-4o", "2024-05-13");
+                   .PublishAsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true));
+                   // Uncomment to use Azure OpenAI instead in local dev, but requires an Azure OpenAI API key
+                   // .PublishAsAzureOpenAI("gpt-4o", "2024-05-13", );
 
 // We use Cosmos DB for our conversation history
 var conversations = builder.AddAzureCosmosDB("cosmos")

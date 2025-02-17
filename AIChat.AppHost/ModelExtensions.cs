@@ -31,30 +31,17 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
-            builder.Reset();
+            return builder.AsOpenAI(modelName, apiKey);
+        }
 
-            // See: https://github.com/dotnet/aspire/issues/7641
-            var csb = new ReferenceExpressionBuilder();
-            csb.Append($"AccessKey={apiKey.Resource};");
-            csb.Append($"Model={modelName}");
-            var cs = csb.Build();
+        return builder;
+    }
 
-            var csTask = cs.GetValueAsync(default).AsTask();
-            if (!csTask.IsCompletedSuccessfully) throw new InvalidOperationException("Connection string could not be resolved!");
-
-            builder.ApplicationBuilder.AddResource(builder.Resource)
-                                      .WithInitialState(new CustomResourceSnapshot
-                                      {
-                                          ResourceType = "OpenAI Model",
-                                          State = KnownResourceStates.Running,
-                                          Properties = [
-                                            new("ConnectionString", csTask.Result ) { IsSensitive = true }
-                                          ]
-                                      });
-
-            builder.Resource.UnderlyingResource = builder.Resource;
-            builder.Resource.ConnectionString = cs;
-            builder.Resource.Provider = "OpenAI";
+    public static IResourceBuilder<AIModel> PublishAsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, IResourceBuilder<ParameterResource> apiKey)
+    {
+        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            return builder.AsOpenAI(modelName, apiKey);
         }
 
         return builder;
@@ -75,6 +62,40 @@ public static class ModelExtensions
             builder.Resource.ConnectionString = openAIModel.Resource.ConnectionStringExpression;
             builder.Resource.Provider = "AzureOpenAI";
         }
+
+        return builder;
+    }
+
+    public static IResourceBuilder<AIModel> AsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, IResourceBuilder<ParameterResource> apiKey)
+    {
+        builder.Reset();
+
+        // See: https://github.com/dotnet/aspire/issues/7641
+        var csb = new ReferenceExpressionBuilder();
+        csb.Append($"AccessKey={apiKey.Resource};");
+        csb.Append($"Model={modelName}");
+        var cs = csb.Build();
+
+        builder.ApplicationBuilder.AddResource(builder.Resource);
+
+        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            var csTask = cs.GetValueAsync(default).AsTask();
+            if (!csTask.IsCompletedSuccessfully) throw new InvalidOperationException("Connection string could not be resolved!");
+
+            builder.WithInitialState(new CustomResourceSnapshot
+            {
+                ResourceType = "OpenAI Model",
+                State = KnownResourceStates.Running,
+                Properties = [
+                  new("ConnectionString", csTask.Result ) { IsSensitive = true }
+                ]
+            });
+        }
+
+        builder.Resource.UnderlyingResource = builder.Resource;
+        builder.Resource.ConnectionString = cs;
+        builder.Resource.Provider = "OpenAI";
 
         return builder;
     }
