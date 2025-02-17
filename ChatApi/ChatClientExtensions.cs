@@ -5,16 +5,20 @@ public static class ChatClientExtensions
 {
     public static IHostApplicationBuilder AddChatClient(this IHostApplicationBuilder builder, string connectionName)
     {
-        ChatClientBuilder chatClientBuilder;
+        var cs = builder.Configuration.GetConnectionString(connectionName);
 
-        if (builder.Environment.IsDevelopment())
+        if (!ChatClientConnectionInfo.TryParse(cs, out var connectionInfo))
         {
-            chatClientBuilder = builder.AddOllamaClient(connectionName);
+            throw new InvalidOperationException($"Invalid connection string: {cs}. Expected format: 'Endpoint=endpoint;AccessKey=your_access_key;Model=model_name;Provider=ollama/openai/azureopenai;'.");
         }
-        else
+
+        var chatClientBuilder = connectionInfo.Provider switch
         {
-            chatClientBuilder = builder.AddAzureOpenAIClient(connectionName).AddChatClient("gpt-4o");
-        }
+            ClientChatProvider.Ollama => builder.AddOllamaClient(connectionName, connectionInfo),
+            ClientChatProvider.OpenAI => builder.AddOpenAIClient(connectionName, connectionInfo),
+            ClientChatProvider.AzureOpenAI => builder.AddAzureOpenAIClient(connectionName).AddChatClient(connectionInfo.SelectedModel),
+            _ => throw new NotSupportedException($"Unsupported provider: {connectionInfo.Provider}")
+        };
 
         // Add OpenTelemetry tracing for the ChatClient activity source
         chatClientBuilder.UseOpenTelemetry().UseLogging();
@@ -24,15 +28,18 @@ public static class ChatClientExtensions
         return builder;
     }
 
-    private static ChatClientBuilder AddOllamaClient(this IHostApplicationBuilder builder, string connectionName)
+    private static ChatClientBuilder AddOpenAIClient(this IHostApplicationBuilder builder, string connectionName, ChatClientConnectionInfo connectionInfo)
     {
-        var cs = builder.Configuration.GetConnectionString(connectionName);
-
-        if (!ChatClientConnectionInfo.TryParse(cs, out var connectionInfo))
+        return builder.AddOpenAIClient(connectionName, settings =>
         {
-            throw new InvalidOperationException($"Invalid connection string: {cs}");
-        }
+            settings.Endpoint = connectionInfo.Endpoint;
+            settings.Key = connectionInfo.AccessKey;
+        })
+        .AddChatClient(connectionInfo.SelectedModel);
+    }
 
+    private static ChatClientBuilder AddOllamaClient(this IHostApplicationBuilder builder, string connectionName, ChatClientConnectionInfo connectionInfo)
+    {
         var httpKey = $"{connectionName}_http";
 
         builder.Services.AddHttpClient(httpKey, c =>

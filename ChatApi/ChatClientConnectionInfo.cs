@@ -6,10 +6,11 @@ public class ChatClientConnectionInfo
     public required Uri Endpoint { get; init; }
     public required string SelectedModel { get; init; }
 
+    public ClientChatProvider Provider { get; init; }
     public string? AccessKey { get; init; }
 
     // Example connection string:
-    // Endpoint=https://localhost:4523;Model=phi3.5;AccessKey=1234;
+    // Endpoint=https://localhost:4523;Model=phi3.5;AccessKey=1234;Provider=ollama;
     public static bool TryParse(string? connectionString, [NotNullWhen(true)] out ChatClientConnectionInfo? settings)
     {
         if (string.IsNullOrEmpty(connectionString))
@@ -40,7 +41,14 @@ public class ChatClientConnectionInfo
             accessKey = (string)connectionBuilder["AccessKey"];
         }
 
-        if (endpoint is null || model is null)
+        var provider = ClientChatProvider.Unknown;
+        if (connectionBuilder.ContainsKey("Provider"))
+        {
+            var providerValue = (string)connectionBuilder["Provider"];
+            Enum.TryParse(providerValue, ignoreCase: true, out provider);
+        }
+
+        if (endpoint is null || model is null || provider == ClientChatProvider.Unknown)
         {
             settings = null;
             return false;
@@ -50,9 +58,18 @@ public class ChatClientConnectionInfo
         {
             Endpoint = endpoint,
             SelectedModel = model,
-            AccessKey = accessKey
+            AccessKey = accessKey,
+            Provider = provider
         };
 
         return true;
     }
+}
+
+public enum ClientChatProvider
+{
+    Unknown,
+    Ollama,
+    OpenAI,
+    AzureOpenAI
 }

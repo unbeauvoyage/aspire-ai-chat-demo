@@ -8,6 +8,10 @@ var model = builder.AddAIModel("llm")
                        c.WithGPUSupport();
                        c.WithLifetime(ContainerLifetime.Persistent);
                    })
+                   // Uncomment to use OpenAI instead in local dev, but requires an OpenAI API key
+                   // in ConnectionStrings:llm section of configuration (use user secrets)
+                   // The format is Endpoint=https://api.openai.com/v1;AccessKey=your_access_key;Model=gpt-4o
+                   // .RunAsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true))
                    .PublishAsAzureOpenAI("gpt-4o", "2024-05-13");
 
 // We use Cosmos DB for our conversation history

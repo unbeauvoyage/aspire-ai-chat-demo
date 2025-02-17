@@ -1,6 +1,3 @@
-
-using Microsoft.Extensions.DependencyInjection;
-
 public static class ModelExtensions
 {
     public static IResourceBuilder<AIModel> AddAIModel(this IDistributedApplicationBuilder builder, string name)
@@ -13,9 +10,9 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
-            if (builder.Resource.InnerResource is not null)
+            if (builder.Resource.UnderlyingResource is not null)
             {
-                builder.ApplicationBuilder.Resources.Remove(builder.Resource.InnerResource);
+                builder.ApplicationBuilder.Resources.Remove(builder.Resource.UnderlyingResource);
             }
 
             var ollama = builder.ApplicationBuilder.AddOllama("ollama")
@@ -25,7 +22,46 @@ public static class ModelExtensions
 
             var ollamaModel = ollama.AddModel(builder.Resource.Name, model);
 
-            builder.Resource.InnerResource = ollamaModel.Resource;
+            builder.Resource.UnderlyingResource = ollamaModel.Resource;
+            builder.Resource.ConnectionString = ollamaModel.Resource.ConnectionStringExpression;
+            builder.Resource.Provider = "Ollama";
+        }
+
+        return builder;
+    }
+
+    public static IResourceBuilder<AIModel> RunAsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, IResourceBuilder<ParameterResource> apiKey)
+    {
+        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            if (builder.Resource.UnderlyingResource is not null)
+            {
+                builder.ApplicationBuilder.Resources.Remove(builder.Resource.UnderlyingResource);
+            }
+
+            // See: https://github.com/dotnet/aspire/issues/7641
+            var csb = new ReferenceExpressionBuilder();
+            csb.Append($"Endpoint=https://api.openai.com/v1;");
+            csb.Append($"AccessKey={apiKey.Resource};");
+            csb.Append($"Model={modelName}");
+            var cs = csb.Build();
+
+            var csTask = cs.GetValueAsync(default).AsTask();
+            if (!csTask.IsCompletedSuccessfully) throw new InvalidOperationException("Connection string could not be resolved!");
+
+            builder.ApplicationBuilder.AddResource(builder.Resource)
+                                      .WithInitialState(new CustomResourceSnapshot
+                                      {
+                                          ResourceType = "OpenAI Model",
+                                          State = KnownResourceStates.Running,
+                                          Properties = [
+                                            new("ConnectionString", csTask.Result ) { IsSensitive = true }
+                                          ]
+                                      });
+
+            builder.Resource.UnderlyingResource = builder.Resource;
+            builder.Resource.ConnectionString = cs;
+            builder.Resource.Provider = "OpenAI";
         }
 
         return builder;
@@ -35,9 +71,9 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
         {
-            if (builder.Resource.InnerResource is not null)
+            if (builder.Resource.UnderlyingResource is not null)
             {
-                builder.ApplicationBuilder.Resources.Remove(builder.Resource.InnerResource);
+                builder.ApplicationBuilder.Resources.Remove(builder.Resource.UnderlyingResource);
             }
 
             var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name)
@@ -45,7 +81,9 @@ public static class ModelExtensions
 
             configure?.Invoke(openAIModel);
 
-            builder.Resource.InnerResource = openAIModel.Resource;
+            builder.Resource.UnderlyingResource = openAIModel.Resource;
+            builder.Resource.ConnectionString = openAIModel.Resource.ConnectionStringExpression;
+            builder.Resource.Provider = "AzureOpenAI";
         }
 
         return builder;
@@ -55,9 +93,23 @@ public static class ModelExtensions
 // A resource representing an AI model.
 public class AIModel(string name) : Resource(name), IResourceWithConnectionString
 {
-    internal IResourceWithConnectionString? InnerResource { get; set; }
+    internal string? Provider { get; set; }
+    internal IResourceWithConnectionString? UnderlyingResource { get; set; }
+    internal ReferenceExpression? ConnectionString { get; set; }
 
     public ReferenceExpression ConnectionStringExpression =>
-        InnerResource?.ConnectionStringExpression
-        ?? throw new InvalidOperationException("No connection string available.");
+        Build();
+
+    public ReferenceExpression Build()
+    {
+        var connectionString = ConnectionString ?? throw new InvalidOperationException("No connection string available.");
+
+        if (Provider is null)
+        {
+            throw new InvalidOperationException("No provider available.");
+        }
+
+        return ReferenceExpression.Create($"{connectionString};Provider={Provider}");
+    }
 }
+
