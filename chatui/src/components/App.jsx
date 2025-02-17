@@ -14,6 +14,7 @@ const App = () => {
     const messagesEndRef = useRef(null);
     const [newChatName, setNewChatName] = useState('');
     const abortControllerRef = useRef(null);
+    const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
     const backendUrl = '/api';
     const chatService = new ChatService(backendUrl);
@@ -54,6 +55,35 @@ const App = () => {
         });
     };
 
+    const scrollToBottom = (behavior = 'smooth') => {
+        if (messagesEndRef.current && shouldAutoScroll) {
+            messagesEndRef.current.scrollTo({
+                top: messagesEndRef.current.scrollHeight,
+                behavior
+            });
+        }
+    };
+
+    const handleScroll = (e) => {
+        const container = e.target;
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        setShouldAutoScroll(isNearBottom);
+    };
+
+    useEffect(() => {
+        const container = messagesEndRef.current;
+        if (container) {
+            container.addEventListener('scroll', handleScroll);
+            return () => container.removeEventListener('scroll', handleScroll);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (shouldAutoScroll) {
+            scrollToBottom();
+        }
+    }, [messages]);
+
     const handleChatSelect = async (chatId) => {
         setSelectedChatId(chatId);
 
@@ -68,6 +98,8 @@ const App = () => {
             lastMessageId = lastMessage && lastMessage.sender === 'assistant' && lastMessage.text ? lastMessage.id : null;
 
             setMessages(data);
+            // Force scroll to bottom on chat selection, using instant scroll
+            setTimeout(() => scrollToBottom('instant'), 100);
         } catch (error) {
             console.error('Error fetching chat messages:', error);
         }
@@ -158,11 +190,11 @@ const App = () => {
         }
     };
 
-    useEffect(() => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
-        }
-    }, [messages]);
+    const isNearBottom = () => {
+        if (!messagesEndRef.current) return false;
+        const container = messagesEndRef.current;
+        return container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    };
 
     return (
         <div className="app-container">
