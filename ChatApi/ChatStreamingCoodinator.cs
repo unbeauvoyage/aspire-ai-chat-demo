@@ -73,14 +73,14 @@ public class ChatStreamingCoodinator(
 
                 if (conversation is not null)
                 {
-                    var assistantMessage = conversation.Messages.Find(m => m.Id == assistantReplyId);
-
-                    if (assistantMessage is not null)
+                    conversation.Messages.Add(new ConversationChatMessage()
                     {
-                        assistantMessage.Text = fullMessage.Text!;
+                        Id = assistantReplyId,
+                        Role = fullMessage.Role.Value,
+                        Text = fullMessage.Text!
+                    });
 
-                        await db.SaveChangesAsync();
-                    }
+                    await db.SaveChangesAsync();
                 }
             }
         }
