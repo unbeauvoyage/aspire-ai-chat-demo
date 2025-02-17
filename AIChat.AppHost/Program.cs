@@ -9,8 +9,7 @@ var model = builder.AddAIModel("llm")
                        c.WithLifetime(ContainerLifetime.Persistent);
                    })
                    // Uncomment to use OpenAI instead in local dev, but requires an OpenAI API key
-                   // in ConnectionStrings:llm section of configuration (use user secrets)
-                   // The format is AccessKey=your_access_key;Model=gpt-4o
+                   // in Parameters:openaikey section of configuration (use user secrets)
                    // .RunAsOpenAI("gpt-4o", builder.AddParameter("openaikey", secret: true))
                    .PublishAsAzureOpenAI("gpt-4o", "2024-05-13");
 
