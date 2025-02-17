@@ -10,10 +10,7 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
-            if (builder.Resource.UnderlyingResource is not null)
-            {
-                builder.ApplicationBuilder.Resources.Remove(builder.Resource.UnderlyingResource);
-            }
+            builder.Reset();
 
             var ollama = builder.ApplicationBuilder.AddOllama("ollama")
                 .WithDataVolume();
@@ -34,14 +31,10 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
-            if (builder.Resource.UnderlyingResource is not null)
-            {
-                builder.ApplicationBuilder.Resources.Remove(builder.Resource.UnderlyingResource);
-            }
+            builder.Reset();
 
             // See: https://github.com/dotnet/aspire/issues/7641
             var csb = new ReferenceExpressionBuilder();
-            csb.Append($"Endpoint=https://api.openai.com/v1;");
             csb.Append($"AccessKey={apiKey.Resource};");
             csb.Append($"Model={modelName}");
             var cs = csb.Build();
@@ -71,10 +64,7 @@ public static class ModelExtensions
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
         {
-            if (builder.Resource.UnderlyingResource is not null)
-            {
-                builder.ApplicationBuilder.Resources.Remove(builder.Resource.UnderlyingResource);
-            }
+            builder.Reset();
 
             var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name)
                 .AddDeployment(new(modelName, modelName, modelVersion));
@@ -87,6 +77,23 @@ public static class ModelExtensions
         }
 
         return builder;
+    }
+
+    private static void Reset(this IResourceBuilder<AIModel> builder)
+    {
+        // Reset the properties of the AIModel resource
+        if (builder.Resource.UnderlyingResource is { } underlyingResource)
+        {
+            builder.ApplicationBuilder.Resources.Remove(underlyingResource);
+
+            if (underlyingResource is IResourceWithParent resourceWithParent)
+            {
+                builder.ApplicationBuilder.Resources.Remove(resourceWithParent.Parent);
+            }
+        }
+
+        builder.Resource.ConnectionString = null;
+        builder.Resource.Provider = null;
     }
 }
 
@@ -106,7 +113,7 @@ public class AIModel(string name) : Resource(name), IResourceWithConnectionStrin
 
         if (Provider is null)
         {
-            throw new InvalidOperationException("No provider available.");
+            throw new InvalidOperationException("No provider configured.");
         }
 
         return ReferenceExpression.Create($"{connectionString};Provider={Provider}");

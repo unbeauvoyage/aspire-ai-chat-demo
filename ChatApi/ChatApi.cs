@@ -87,8 +87,11 @@ public static class ChatExtensions
                 {
                     allChunks.Add(update);
 
-                    yield return new ClientMessageFragment(assistantReply.Id, update.Text!);
-                    await Task.Yield();
+                    if (update.Text is not null)
+                    {
+                        yield return new ClientMessageFragment(assistantReply.Id, update.Text);
+                        await Task.Yield();
+                    }
                 }
 
                 var assistantMessage = allChunks.ToChatCompletion().Message;

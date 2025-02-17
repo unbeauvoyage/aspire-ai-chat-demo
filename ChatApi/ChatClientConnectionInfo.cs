@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 public class ChatClientConnectionInfo
 {
-    public required Uri Endpoint { get; init; }
+    public Uri? Endpoint { get; init; }
     public required string SelectedModel { get; init; }
 
     public ClientChatProvider Provider { get; init; }
@@ -48,7 +48,7 @@ public class ChatClientConnectionInfo
             Enum.TryParse(providerValue, ignoreCase: true, out provider);
         }
 
-        if (endpoint is null || model is null || provider == ClientChatProvider.Unknown)
+        if ((endpoint is null && provider != ClientChatProvider.OpenAI) || model is null || provider == ClientChatProvider.Unknown)
         {
             settings = null;
             return false;

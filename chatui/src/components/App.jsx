@@ -44,7 +44,7 @@ const App = () => {
     const updateMessageById = (id, newText) => {
         setMessages(prevMessages =>
             prevMessages.map(msg =>
-                msg.id === id ? { ...msg, text: newText, isLoading: false } : msg
+                msg.id === id ? { ...msg, text: msg.text + newText, isLoading: false } : msg
             )
         );
     };
