@@ -4,8 +4,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 var model = builder.AddAIModel("llm")
                    .RunAsOllama("phi4", c =>
                    {
-                       // Uncomment to enable GPU support
-                       // c.WithGPUSupport()
+                       // Enable to enable GPU support (if your machine has a GPU)
+                       c.WithGPUSupport();
                        c.WithLifetime(ContainerLifetime.Persistent);
                    })
                    .PublishAsAzureOpenAI("gpt-4o", "2024-05-13");

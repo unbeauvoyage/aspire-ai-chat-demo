@@ -41,6 +41,14 @@ const App = () => {
         }
     };
 
+    const updateMessageById = (id, newText) => {
+        setMessages(prevMessages =>
+            prevMessages.map(msg =>
+                msg.id === id ? { ...msg, text: newText, isLoading: false } : msg
+            )
+        );
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!prompt.trim() || !selectedChatId) return;
@@ -62,25 +70,21 @@ const App = () => {
             setPrompt('');
 
             let firstChunk = true;
-            for await (const chunk of stream) {
+            for await (const { id, text } of stream) {
                 if (firstChunk) {
-                    // Remove loading indicator and add the bot message with the first chunk
+                    // Replace the client-generated id with the server-generated id
                     setMessages(prev =>
                         prev.filter(msg => msg.id !== loadingIndicatorId).concat({
-                            id: loadingIndicatorId,
+                            id,
                             sender: 'assistant',
-                            text: chunk,
+                            text,
                             isLoading: false
                         })
                     );
                     firstChunk = false;
                 } else {
                     // Update the bot message with subsequent chunks
-                    setMessages(prev =>
-                        prev.map(msg =>
-                            msg.id === loadingIndicatorId ? { ...msg, text: msg.text + chunk } : msg
-                        )
-                    );
+                    updateMessageById(id, text);
                 }
             }
         } catch (error) {

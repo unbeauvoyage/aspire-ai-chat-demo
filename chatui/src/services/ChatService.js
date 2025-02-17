@@ -57,7 +57,7 @@ class ChatService {
         }
 
         for await (const value of streamJsonValues(response)) {
-            yield value.text;
+            yield { id: value.id, text: value.text };
         }
     }
 }
