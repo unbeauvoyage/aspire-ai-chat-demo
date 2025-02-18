@@ -141,13 +141,6 @@ public class ChatStreamingCoordinator(
                 return;
             }
 
-            // Special case for initial message, jump the queue.
-            if (message.Id == Guid.Empty)
-            {
-                channel.Writer.TryWrite(message);
-                return;
-            }
-
             channel.Writer.TryWrite(message);
         }
 
@@ -164,15 +157,14 @@ public class ChatStreamingCoordinator(
                 {
                     foreach (var m in convState.Backlog)
                     {
-                        if (m.Id != lastMessageId)
-                        {
-                            channel.Writer.TryWrite(m);
-                        }
+                        WriteToChannel(conversationId, m);
                     }
                 }
             }
 
-            await foreach (var message in channel.Reader.ReadAllAsync(cancellationToken))
+            using var reg = cancellationToken.Register(() => channel.Writer.TryComplete());
+
+            await foreach (var message in channel.Reader.ReadAllAsync())
             {
                 // Use lastMessageId to filter out fragments from an already delivered message,
                 // while using lastDeliveredFragment (a sortable GUID) for ordering and de-duping.
