@@ -40,7 +40,13 @@ const App = () => {
             const existingMessage = prevMessages.find(msg => msg.id === id);
             if (existingMessage) {
                 return prevMessages.map(msg =>
-                    msg.id === id ? { ...msg, text: msg.text + newText, isLoading: false } : msg
+                    msg.id === id
+                        ? {
+                              ...msg, 
+                              text: (msg.text === 'Generating reply...' ? newText : msg.text + newText),
+                              isLoading: false
+                          }
+                        : msg
                 );
             } else {
                 return prevMessages
@@ -143,7 +149,7 @@ const App = () => {
         // Show loading indicator
         setMessages(prevMessages => [
             ...prevMessages,
-            { id: loadingIndicatorId, sender: 'assistant', text: 'Loading...', isLoading: true }
+            { id: loadingIndicatorId, sender: 'assistant', text: 'Generating reply...', isLoading: true }
         ]);
 
         try {

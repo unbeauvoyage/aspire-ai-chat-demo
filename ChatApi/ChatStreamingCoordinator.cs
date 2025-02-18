@@ -8,17 +8,16 @@ public class ChatStreamingCoordinator(
     IServiceScopeFactory scopeFactory,
     ILogger<ChatStreamingCoordinator> logger) : IDisposable
 {
-    private readonly ConcurrentDictionary<Guid, List<ClientMessageFragment>> _cache = [];
-    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _streamLocks = [];
-    private readonly object _eventLock = new();
+    private readonly ConcurrentDictionary<Guid, ConversationState> _stateCache = new();
+    private readonly Lock _eventLock = new();
     private Action<Guid, ClientMessageFragment>? OnMessage;
 
     public async Task AddStreamingMessage(Guid conversationId, Guid assistantReplyId, List<ChatMessage> messages, CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Adding streaming message for conversation {ConversationId}", conversationId);
 
-        var streamLock = _streamLocks.GetOrAdd(conversationId, _ => new SemaphoreSlim(1, 1));
-        await streamLock.WaitAsync(cancellationToken);
+        var state = _stateCache.GetOrAdd(conversationId, _ => new ConversationState());
+        await state.Semaphore.WaitAsync(cancellationToken);
 
         try
         {
@@ -26,18 +25,25 @@ public class ChatStreamingCoordinator(
         }
         finally
         {
-            streamLock.Release();
+            state.Semaphore.Release();
         }
 
         async Task StreamMessages()
         {
             var allChunks = new List<StreamingChatCompletionUpdate>();
-            var backlog = _cache.GetOrAdd(conversationId, _ => []);
+            var backlog = state.Backlog;
+
+
+            // Before streaming, we need to set up a synthetic loading message
+            var fragment = new ClientMessageFragment(assistantReplyId, "Generating reply...", Guid.CreateVersion7());
 
             lock (backlog)
             {
                 backlog.Clear();
+                backlog.Add(fragment);
             }
+
+            NotifySubscribers(conversationId, fragment);
 
             try
             {
@@ -46,7 +52,7 @@ public class ChatStreamingCoordinator(
                     if (update.Text is not null)
                     {
                         allChunks.Add(update);
-                        var fragment = new ClientMessageFragment(assistantReplyId, update.Text, Guid.CreateVersion7());
+                        fragment = new ClientMessageFragment(assistantReplyId, update.Text, Guid.CreateVersion7());
 
                         lock (backlog)
                         {
@@ -61,7 +67,7 @@ public class ChatStreamingCoordinator(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                var fragment = new ClientMessageFragment(assistantReplyId, "Error streaming message", Guid.CreateVersion7());
+                fragment = new ClientMessageFragment(assistantReplyId, "Error streaming message", Guid.CreateVersion7());
                 lock (backlog)
                 {
                     backlog.Add(fragment);
@@ -77,9 +83,6 @@ public class ChatStreamingCoordinator(
                     var fullMessage = allChunks.ToChatCompletion().Message;
                     await SaveMessageToDatabase(conversationId, assistantReplyId, fullMessage);
                 }
-
-                // Only remove the cache entry, keep the lock
-                _cache.TryRemove(conversationId, out _);
             }
         }
     }
@@ -114,28 +117,38 @@ public class ChatStreamingCoordinator(
     }
 
     public async IAsyncEnumerable<ClientMessageFragment> GetMessageStream(
-        Guid conversationId, 
-        Guid? lastMessageId, 
+        Guid conversationId,
+        Guid? lastMessageId,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Getting message stream for conversation {ConversationId}, {LastMessageId}", conversationId, lastMessageId);
 
         var channel = Channel.CreateUnbounded<ClientMessageFragment>();
-
-        // Track the last delivered fragment separately, this de-dupes fragments from the same message.
         var lastDeliveredFragment = Guid.Empty;
+
+        // Resolve conversation state.
+        _stateCache.TryGetValue(conversationId, out var convState);
 
         void WriteToChannel(Guid id, ClientMessageFragment message)
         {
-            // Use lastMessageId to filter out fragments from an already delivered message,
-            // while using lastDeliveredFragment (a sortable GUID) for ordering and de-duping.
-            if (id == conversationId 
-                && message.Id != lastMessageId 
-                && message.FragmentId > lastDeliveredFragment)
+            if (id != conversationId)
             {
-                lastDeliveredFragment = message.FragmentId;
-                channel.Writer.TryWrite(message);
+                return;
             }
+
+            if (message.Id == lastMessageId)
+            {
+                return;
+            }
+
+            // Special case for initial message, jump the queue.
+            if (message.Id == Guid.Empty)
+            {
+                channel.Writer.TryWrite(message);
+                return;
+            }
+
+            channel.Writer.TryWrite(message);
         }
 
         lock (_eventLock)
@@ -145,15 +158,14 @@ public class ChatStreamingCoordinator(
 
         try
         {
-            if (_cache.TryGetValue(conversationId, out var backlog))
+            if (convState is not null)
             {
-                lock (backlog)
+                lock (convState.Backlog)
                 {
-                    foreach (var m in backlog)
+                    foreach (var m in convState.Backlog)
                     {
-                        if (m.Id != lastMessageId && m.FragmentId > lastDeliveredFragment)
+                        if (m.Id != lastMessageId)
                         {
-                            lastDeliveredFragment = m.FragmentId;
                             channel.Writer.TryWrite(m);
                         }
                     }
@@ -162,6 +174,13 @@ public class ChatStreamingCoordinator(
 
             await foreach (var message in channel.Reader.ReadAllAsync(cancellationToken))
             {
+                // Use lastMessageId to filter out fragments from an already delivered message,
+                // while using lastDeliveredFragment (a sortable GUID) for ordering and de-duping.
+                if (message.FragmentId > lastDeliveredFragment)
+                {
+                    lastDeliveredFragment = message.FragmentId;
+                }
+
                 yield return message;
             }
         }
@@ -176,11 +195,16 @@ public class ChatStreamingCoordinator(
 
     public void Dispose()
     {
-        foreach (var (_, semaphore) in _streamLocks)
+        foreach (var (_, state) in _stateCache)
         {
-            semaphore.Dispose();
+            state.Semaphore.Dispose();
         }
-        _streamLocks.Clear();
-        _cache.Clear();
+        _stateCache.Clear();
+    }
+
+    private sealed class ConversationState
+    {
+        public List<ClientMessageFragment> Backlog { get; } = [];
+        public SemaphoreSlim Semaphore { get; } = new(1, 1);
     }
 }
