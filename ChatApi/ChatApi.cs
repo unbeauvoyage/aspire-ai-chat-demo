@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 
@@ -27,7 +28,7 @@ public static class ChatExtensions
             return Results.Ok(clientMessages);
         });
 
-        group.MapPost("/stream/{id}", (Guid id, StreamContext streamContext, ChatStreamingCoodinator streaming, CancellationToken token) =>
+        group.MapPost("/stream/{id}", (Guid id, StreamContext streamContext, ChatStreamingCoordinator streaming, CancellationToken token) =>
         {
             async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
             {
@@ -61,7 +62,7 @@ public static class ChatExtensions
             return Results.Created($"/api/chats/{conversation.Id}", conversation);
         });
 
-        group.MapPost("/{id}", async (Guid id, AppDbContext db, IChatClient chatClient, Prompt prompt, CancellationToken token, ChatStreamingCoodinator streaming) =>
+        group.MapPost("/{id}", async (Guid id, AppDbContext db, IChatClient chatClient, Prompt prompt, CancellationToken token, ChatStreamingCoordinator streaming) =>
         {
             var conversation = await db.Conversations.FindAsync(id, token);
 
@@ -85,7 +86,8 @@ public static class ChatExtensions
                 .Select(m => new ChatMessage(new(m.Role), m.Text))
                 .ToList();
 
-            streaming.AddStreamingMessage(id, Guid.CreateVersion7(), messages);
+            // Fire and forget
+            _ = streaming.AddStreamingMessage(id, Guid.CreateVersion7(), messages);
 
             return Results.Ok();
         });
@@ -113,6 +115,6 @@ public record NewConversation(string Name);
 
 public record ClientMessage(Guid Id, string Sender, string Text);
 
-public record ClientMessageFragment(Guid Id, int Index, string Text);
+public record ClientMessageFragment(Guid Id, string Text, [property: JsonIgnore] Guid FragmentId);
 
 public record StreamContext(Guid? LastMessageId);
