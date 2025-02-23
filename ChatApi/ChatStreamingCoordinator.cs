@@ -33,26 +33,27 @@ public class ChatStreamingCoordinator(
                         await _conversationState.PublishFragmentAsync(conversationId, fragment);
                     }
                 }
+
                 logger.LogInformation("Full message received for conversation {ConversationId}", conversationId);
+
+                if (allChunks.Count > 0)
+                {
+                    var fullMessage = allChunks.ToChatResponse().Message;
+                    await SaveAssistantMessageToDatabase(conversationId, assistantReplyId, fullMessage.Text!);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 fragment = new ClientMessageFragment(assistantReplyId, "Error streaming message", Guid.CreateVersion7());
                 await _conversationState.PublishFragmentAsync(conversationId, fragment);
                 logger.LogError(ex, "Error streaming message for conversation {ConversationId}", conversationId);
-            }
-            finally
-            {
-                if (allChunks.Count > 0)
-                {
-                    var fullMessage = allChunks.ToChatResponse().Message;
-                    await SaveMessageToDatabase(conversationId, assistantReplyId, fullMessage);
-                }
+
+                await SaveAssistantMessageToDatabase(conversationId, assistantReplyId, "Error streaming message");
             }
         }
     }
 
-    private async Task SaveMessageToDatabase(Guid conversationId, Guid messageId, ChatMessage message)
+    private async Task SaveAssistantMessageToDatabase(Guid conversationId, Guid messageId, string text)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -63,8 +64,8 @@ public class ChatStreamingCoordinator(
             conversation.Messages.Add(new ConversationChatMessage
             {
                 Id = messageId,
-                Role = message.Role.Value,
-                Text = message.Text!
+                Role = ChatRole.Assistant.Value,
+                Text = text
             });
 
             await db.SaveChangesAsync();

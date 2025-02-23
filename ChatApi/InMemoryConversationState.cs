@@ -40,19 +40,19 @@ public class InMemoryConversationState : IConversationState, IDisposable
         // Resolve conversation state.
         _conversationState.TryGetValue(conversationId, out var convState);
 
-        void WriteToChannel(Guid id, ClientMessageFragment message)
+        void WriteToChannel(Guid id, ClientMessageFragment fragment)
         {
             if (id != conversationId)
             {
                 return;
             }
 
-            if (lastMessageId is not null && message.Id <= lastMessageId)
+            if (lastMessageId is not null && fragment.Id <= lastMessageId)
             {
                 return;
             }
 
-            channel.Writer.TryWrite(message);
+            channel.Writer.TryWrite(fragment);
         }
 
         lock (_eventLock)
@@ -66,18 +66,18 @@ public class InMemoryConversationState : IConversationState, IDisposable
             {
                 lock (convState.Backlog)
                 {
-                    foreach (var m in convState.Backlog)
+                    foreach (var fragment in convState.Backlog)
                     {
-                        WriteToChannel(conversationId, m);
+                        WriteToChannel(conversationId, fragment);
                     }
                 }
             }
 
             using var reg = cancellationToken.Register(() => channel.Writer.TryComplete());
 
-            await foreach (var message in channel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var fragment in channel.Reader.ReadAllAsync(cancellationToken))
             {
-                yield return message;
+                yield return fragment;
             }
         }
         finally

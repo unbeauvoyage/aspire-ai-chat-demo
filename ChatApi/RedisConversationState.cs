@@ -131,16 +131,11 @@ public class RedisConversationState : IConversationState, IDisposable
 
         // Then fetch and yield backlog. If lastMessageId is specified, skip fragments up to matching id.
         var backlog = await GetBacklogAsync(conversationId);
-        bool skip = lastMessageId != null;
+
         foreach (var fragment in backlog)
         {
-            if (skip)
+            if (lastMessageId is not null && fragment.Id <= lastMessageId)
             {
-                if (fragment.Id.Equals(lastMessageId))
-                {
-                    skip = false;
-                    continue;
-                }
                 continue;
             }
 
