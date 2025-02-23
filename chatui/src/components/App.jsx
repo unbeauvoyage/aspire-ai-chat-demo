@@ -15,7 +15,7 @@ const App = () => {
     const [newChatName, setNewChatName] = useState('');
     const abortControllerRef = useRef(null);
     const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
-    const [isStreaming, setIsStreaming] = useState(false);
+    const [streamingMessageId, setStreamingMessageId] = useState(null);
 
     const backendUrl = '/api';
     const chatService = new ChatService(backendUrl);
@@ -121,10 +121,10 @@ const App = () => {
                     console.debug('Received chunk:', id, text, isFinal);
                     updateMessageById(id, text);
                     if (isFinal) {
-                        setIsStreaming(false);
+                        setStreamingMessageId(null);
                     } else {
-                        // Only set streaming to true if not already set
-                        setIsStreaming(current => current ? current : true);
+                        // Only set streamingMessageId if not already set
+                        setStreamingMessageId(current => current ? current : id);
                     }
                 }
             } catch (error) {
@@ -136,7 +136,7 @@ const App = () => {
                         )
                     );
                 }
-                setIsStreaming(false);
+                setStreamingMessageId(null);
             }
         };
 
@@ -147,7 +147,7 @@ const App = () => {
         e.preventDefault();
         if (!prompt.trim() || !selectedChatId) return;
         // Prevent prompt submission while streaming.
-        if (isStreaming) return;
+        if (streamingMessageId) return;
 
         // Add the user's message
         const userMessage = { id: Date.now(), sender: 'user', text: prompt };
@@ -209,6 +209,11 @@ const App = () => {
         return container.scrollHeight - container.scrollTop - container.clientHeight < 100;
     };
 
+    // Replace cancelChat function
+    const cancelChat = () => {
+        chatService.cancelChat(streamingMessageId);
+    };
+
     return (
         <div className="app-container">
             <div className="sidebar">
@@ -263,12 +268,18 @@ const App = () => {
                         value={prompt}
                         onChange={e => setPrompt(e.target.value)}
                         placeholder="Enter your message..."
-                        disabled={!selectedChatId || isStreaming}
+                        disabled={!selectedChatId || streamingMessageId}
                         className="message-input"
                     />
-                    <button type="submit" disabled={!selectedChatId || isStreaming} className="message-button">
-                        Send
-                    </button>
+                    {streamingMessageId ? (
+                        <button type="button" onClick={cancelChat} className="message-button">
+                            Stop
+                        </button>
+                    ) : (
+                        <button type="submit" disabled={!selectedChatId || streamingMessageId} className="message-button">
+                            Send
+                        </button>
+                    )}
                 </form>
             </div>
         </div>
