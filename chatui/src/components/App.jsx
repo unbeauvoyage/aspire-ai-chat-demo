@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import ChatService from '../services/ChatService';
 import Sidebar from './Sidebar';
 import ChatContainer from './ChatContainer';
+import VirtualizedChatList from './VirtualizedChatList';
 import './App.css';
 
 const loadingIndicatorId = 'loading-indicator';
@@ -132,14 +133,9 @@ const App = () => {
                         : msg
                 );
             } else {
-                return prevMessages
-                    .filter(msg => msg.id !== loadingIndicatorId)
-                    .concat({
-                        id,
-                        sender: sender || 'assistant',
-                        text: newText,
-                        isLoading: false
-                    });
+                return [...prevMessages.filter(msg => msg.id !== loadingIndicatorId),
+                    { id, sender, text: newText, isLoading: false },
+                ];
             }
         });
     };
@@ -243,6 +239,9 @@ const App = () => {
                 streamingMessageId={streamingMessageId}
                 messagesEndRef={messagesEndRef}
                 shouldAutoScroll={shouldAutoScroll}
+                renderMessages={() => (
+                    <VirtualizedChatList messages={messages} />
+                )}
             />
         </div>
     );
