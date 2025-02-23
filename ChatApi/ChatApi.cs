@@ -32,7 +32,14 @@ public static class ChatExtensions
         {
             async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
             {
-                await foreach (var message in streaming.GetMessageStream(id, streamContext.LastMessageId).WithCancellation(token))
+                // This simulates a flaky connection
+                // #if CHAOS
+                //                 using var ts = CancellationTokenSource.CreateLinkedTokenSource(token);
+                //                 ts.CancelAfter(5000);
+                //                 token = ts.Token;
+                // #endif
+
+                await foreach (var message in streaming.GetMessageStream(id, streamContext.LastMessageId, streamContext.LastFragmentId).WithCancellation(token))
                 {
                     yield return message;
                     await Task.Yield();
@@ -102,4 +109,4 @@ public record ClientMessage(Guid Id, string Sender, string Text);
 
 public record ClientMessageFragment(Guid Id, string Sender, string Text, Guid FragmentId, bool IsFinal = false);
 
-public record StreamContext(Guid? LastMessageId);
+public record StreamContext(Guid? LastMessageId, Guid? LastFragmentId);

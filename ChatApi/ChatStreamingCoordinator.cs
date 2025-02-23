@@ -125,18 +125,17 @@ public class ChatStreamingCoordinator(
     public async IAsyncEnumerable<ClientMessageFragment> GetMessageStream(
         Guid conversationId,
         Guid? lastMessageId,
+        Guid? lastDeliveredFragment,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Getting message stream for conversation {ConversationId}, {LastMessageId}", conversationId, lastMessageId);
         var stream = conversationState.Subscribe(conversationId, lastMessageId, cancellationToken);
 
-        var lastDeliveredFragment = Guid.Empty;
-
         await foreach (var fragment in stream.WithCancellation(cancellationToken))
         {
             // Use lastMessageId to filter out fragments from an already delivered message,
             // while using lastDeliveredFragment (a sortable GUID) for ordering and de-duping.
-            if (fragment.FragmentId > lastDeliveredFragment)
+            if (lastDeliveredFragment is null || fragment.FragmentId > lastDeliveredFragment)
             {
                 lastDeliveredFragment = fragment.FragmentId;
             }

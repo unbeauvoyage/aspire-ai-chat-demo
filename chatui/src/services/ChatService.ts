@@ -38,11 +38,11 @@ class ChatService {
 		return await response.json();
 	}
 
-	async *stream(id: string, lastMessageId: string, abortController: AbortController): AsyncGenerator<MessageFragment> {
+	async *stream(id: string, lastMessageId: string, lastFragmentId: string, abortController: AbortController): AsyncGenerator<MessageFragment> {
 		const response = await fetch(`${this.backendUrl}/stream/${id}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ lastMessageId }),
+			body: JSON.stringify({ lastMessageId, lastFragmentId }),
 			signal: abortController.signal
 		});
 		if (!response.ok) {
@@ -62,6 +62,8 @@ class ChatService {
 				fragmentId: value.fragmentId
 			};
 		}
+
+		console.debug(`Stream ended for chat: ${id}`);
 	}
 
 	async sendPrompt(id: string, prompt: string): Promise<void> {

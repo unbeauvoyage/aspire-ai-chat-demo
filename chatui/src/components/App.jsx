@@ -65,6 +65,8 @@ const App = () => {
         // Clear the message list immediately on chat switch
         setMessages([]);
         let lastMessageId = null;
+        let lastFragmentId = null;
+
         try {
             const data = await chatService.getChatMessages(id);
             const filteredMessages = data.filter(msg => msg.text && msg.sender === 'assistant');
@@ -81,33 +83,52 @@ const App = () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
-            abortControllerRef.current = new AbortController();
+
+            let abortController = new AbortController();
+            abortControllerRef.current = abortController;
             const currentChatId = chatId;
 
-            try {
-                const stream = chatService.stream(chatId, lastMessageId, abortControllerRef.current);
-                for await (const { id, sender, text, isFinal } of stream) {
-                    if (selectedChatIdRef.current !== currentChatId) break;
-                    console.debug('Received chunk:', id, sender, text, isFinal);
-                    updateMessageById(id, text, sender, isFinal);
-                    if (isFinal) {
-                        setStreamingMessageId(null);
-                    } else {
-                        setStreamingMessageId(current => current ? current : id);
+            // Stream messages while the chat is selected and not aborted
+            while (abortController.signal.aborted === false &&
+                currentChatId === selectedChatIdRef.current) {
+                try {
+                    const stream = chatService.stream(chatId, lastMessageId, lastFragmentId, abortController);
+                    for await (const { id, sender, text, isFinal, fragmentId } of stream) {
+                        if (selectedChatIdRef.current !== currentChatId) {
+                            break;
+                        }
+
+                        console.debug('Received chunk:', id, sender, text, isFinal, lastFragmentId);
+
+                        updateMessageById(id, text, sender, isFinal);
+
+                        if (isFinal) {
+                            // Reset lastMessageId and lastFragmentId when the message is final
+                            lastMessageId = id;
+                            setStreamingMessageId(null);
+                        } else {
+                            setStreamingMessageId(current => current ? current : id);
+                        }
+
+                        // Update lastFragmentId for the next chunk
+                        lastFragmentId = fragmentId;
+                    }
+                } catch (error) {
+                    console.debug('streamChat error:', chatId, error);
+
+                    if (error.name !== 'AbortError') {
+                        console.error('Streaming error:', error);
+                        setMessages(prev =>
+                            prev.map(msg =>
+                                msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
+                            )
+                        );
                     }
                 }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Streaming error:', error);
-                    setMessages(prev =>
-                        prev.map(msg =>
-                            msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
-                        )
-                    );
+                finally {
+                    console.log('streamChat finished:', chatId);
+                    setStreamingMessageId(null);
                 }
-            }
-            finally {
-                setStreamingMessageId(null);
             }
         };
 
@@ -134,7 +155,7 @@ const App = () => {
                 );
             } else {
                 return [...prevMessages.filter(msg => msg.id !== loadingIndicatorId),
-                    { id, sender, text: newText, isLoading: false },
+                { id, sender, text: newText, isLoading: false },
                 ];
             }
         });
@@ -177,7 +198,7 @@ const App = () => {
             chatService.sendPrompt(selectedChatId, prompt);
             setPrompt('');
         } catch (error) {
-            console.error('Streaming error:', error);
+            console.error('handleSubmit error:', error);
             setMessages(prev =>
                 prev.map(msg =>
                     msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
@@ -196,7 +217,7 @@ const App = () => {
             setNewChatName('');
             onSelectChat(newChat.id);
         } catch (error) {
-            console.error('Error creating new chat:', error);
+            console.error('handleNewChatSubmit error:', error);
         }
     }, [newChatName, chatService, onSelectChat]);
 
@@ -210,7 +231,7 @@ const App = () => {
                 setMessages([]);
             }
         } catch (error) {
-            console.error('Error deleting chat:', error);
+            console.error('handleDeleteChat error:', chatId, error);
         }
     };
 
