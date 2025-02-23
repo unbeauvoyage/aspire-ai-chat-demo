@@ -115,6 +115,6 @@ public record NewConversation(string Name);
 
 public record ClientMessage(Guid Id, string Sender, string Text);
 
-public record ClientMessageFragment(Guid Id, string Text, [property: JsonIgnore] Guid FragmentId);
+public record ClientMessageFragment(Guid Id, string Text, Guid FragmentId);
 
 public record StreamContext(Guid? LastMessageId);
