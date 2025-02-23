@@ -42,10 +42,10 @@ const App = () => {
                 return prevMessages.map(msg =>
                     msg.id === id
                         ? {
-                              ...msg, 
-                              text: (msg.text === 'Generating reply...' ? newText : msg.text + newText),
-                              isLoading: false
-                          }
+                            ...msg,
+                            text: (msg.text === 'Generating reply...' ? newText : msg.text + newText),
+                            isLoading: false
+                        }
                         : msg
                 );
             } else {
@@ -92,16 +92,14 @@ const App = () => {
 
     const handleChatSelect = async (chatId) => {
         setSelectedChatId(chatId);
-
-        var lastMessageId = null;
-
+        let lastMessageId = null;
         try {
             const data = await chatService.getChatMessages(chatId);
 
-            // Get the last message id from the chat, only if it's 
-            // the assistant's message and it's empty
-            const lastMessage = data[data.length - 1];
-            lastMessageId = lastMessage && lastMessage.sender === 'assistant' && lastMessage.text ? lastMessage.id : null;
+            // Filter for messages with text (and optionally matching sender) then take last one.
+            const filteredMessages = data.filter(msg => msg.text && msg.sender === 'assistant');
+            const lastMessage = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : null;
+            lastMessageId = lastMessage ? lastMessage.id : null;
 
             setMessages(data);
             // Force scroll to bottom on chat selection, using instant scroll
