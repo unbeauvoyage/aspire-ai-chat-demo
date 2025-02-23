@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ChatService from '../services/ChatService';
 import Sidebar from './Sidebar';
@@ -22,7 +22,7 @@ const App = () => {
     const { chatId } = useParams();
     const navigate = useNavigate();
 
-    const chatService = new ChatService('/api/chat');
+    const chatService = useMemo(() => new ChatService('/api/chat'), []);
 
     useEffect(() => {
         const fetchChats = async () => {
@@ -37,7 +37,7 @@ const App = () => {
         };
 
         fetchChats();
-    }, [chatId]);
+    }, [chatId, chatService]);
 
     useEffect(() => {
         if (chatId) {
@@ -45,11 +45,20 @@ const App = () => {
         }
     }, [chatId]);
 
-    const onSelectChat = (id) => {
+    const onSelectChat = useCallback((id) => {
         navigate(`/chat/${id}`);
-    };
+    }, [navigate]);
 
-    const handleChatSelect = async (id) => {
+    const scrollToBottom = useCallback((behavior = 'smooth') => {
+        if (messagesEndRef.current && shouldAutoScroll) {
+            messagesEndRef.current.scrollTo({
+                top: messagesEndRef.current.scrollHeight,
+                behavior
+            });
+        }
+    }, [shouldAutoScroll]);
+
+    const handleChatSelect = useCallback(async (id) => {
         setSelectedChatId(id);
         selectedChatIdRef.current = id;
         // Clear the message list immediately on chat switch
@@ -102,7 +111,7 @@ const App = () => {
         };
 
         streamChat(id);
-    };
+    }, [chatService, scrollToBottom]);
 
     const updateMessageById = (id, newText, sender, isFinal = false) => {
         setMessages(prevMessages => {
@@ -135,20 +144,11 @@ const App = () => {
         });
     };
 
-    const scrollToBottom = (behavior = 'smooth') => {
-        if (messagesEndRef.current && shouldAutoScroll) {
-            messagesEndRef.current.scrollTo({
-                top: messagesEndRef.current.scrollHeight,
-                behavior
-            });
-        }
-    };
-
-    const handleScroll = (e) => {
+    const handleScroll = useCallback((e) => {
         const container = e.target;
         const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
         setShouldAutoScroll(isNearBottom);
-    };
+    }, []);
 
     useEffect(() => {
         const container = messagesEndRef.current;
@@ -156,15 +156,15 @@ const App = () => {
             container.addEventListener('scroll', handleScroll);
             return () => container.removeEventListener('scroll', handleScroll);
         }
-    }, []);
+    }, [handleScroll]);
 
     useEffect(() => {
         if (shouldAutoScroll) {
             scrollToBottom();
         }
-    }, [messages]);
+    }, [messages, scrollToBottom]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         if (!prompt.trim() || !selectedChatId) return;
         if (streamingMessageId) return;
@@ -188,9 +188,9 @@ const App = () => {
                 )
             );
         }
-    };
+    }, [prompt, selectedChatId, streamingMessageId, chatService]);
 
-    const handleNewChatSubmit = async (e) => {
+    const handleNewChatSubmit = useCallback(async (e) => {
         e.preventDefault();
         if (!newChatName.trim()) return;
 
@@ -202,7 +202,7 @@ const App = () => {
         } catch (error) {
             console.error('Error creating new chat:', error);
         }
-    };
+    }, [newChatName, chatService, onSelectChat]);
 
     const handleDeleteChat = async (e, chatId) => {
         e.stopPropagation();
