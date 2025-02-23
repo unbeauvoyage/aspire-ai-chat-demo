@@ -59,7 +59,8 @@ public static class ModelExtensions
             configure?.Invoke(openAIModel);
 
             builder.Resource.UnderlyingResource = openAIModel.Resource;
-            builder.Resource.ConnectionString = openAIModel.Resource.ConnectionStringExpression;
+            // Add the model name to the connection string
+            builder.Resource.ConnectionString = ReferenceExpression.Create($"{openAIModel.Resource.ConnectionStringExpression};Model={modelName}");
             builder.Resource.Provider = "AzureOpenAI";
         }
 
