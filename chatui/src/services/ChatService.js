@@ -6,7 +6,7 @@ class ChatService {
     }
 
     async getChats() {
-        const response = await fetch(`${this.backendUrl}/chat`);
+        const response = await fetch(`${this.backendUrl}`);
         if (!response.ok) {
             throw new Error('Error fetching chats');
         }
@@ -14,7 +14,7 @@ class ChatService {
     }
 
     async getChatMessages(chatId) {
-        const response = await fetch(`${this.backendUrl}/chat/${chatId}`);
+        const response = await fetch(`${this.backendUrl}/${chatId}`);
         if (!response.ok) {
             throw new Error('Error fetching chat messages');
         }
@@ -22,7 +22,7 @@ class ChatService {
     }
 
     async createChat(name) {
-        const response = await fetch(`${this.backendUrl}/chat`, {
+        const response = await fetch(`${this.backendUrl}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -36,7 +36,7 @@ class ChatService {
     }
 
     async *stream(id, lastMessageId, abortController) {
-        const response = await fetch(`${this.backendUrl}/chat/stream/${id}`, {
+        const response = await fetch(`${this.backendUrl}/stream/${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lastMessageId }),
@@ -61,7 +61,7 @@ class ChatService {
     }
 
     async sendPrompt(id, prompt) {
-        const response = await fetch(`${this.backendUrl}/chat/${id}`, {
+        const response = await fetch(`${this.backendUrl}/${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: prompt })
@@ -79,7 +79,7 @@ class ChatService {
     }
 
     async deleteChat(id) {
-        const response = await fetch(`${this.backendUrl}/chat/${id}`, {
+        const response = await fetch(`${this.backendUrl}/${id}`, {
             method: 'DELETE'
         });
 
@@ -89,7 +89,7 @@ class ChatService {
     }
 
     async cancelChat(id) {
-        const response = await fetch(`${this.backendUrl}/chat/${id}/cancel`, {
+        const response = await fetch(`${this.backendUrl}/${id}/cancel`, {
             method: 'POST'
         });
         if (!response.ok) {
