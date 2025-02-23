@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, startTransition } from 'react';
 import ReactMarkdown from 'react-markdown';
 import ChatService from '../services/ChatService';
 import './App.css';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 const loadingIndicatorId = 'loading-indicator';
 
@@ -16,6 +17,9 @@ const App = () => {
     const abortControllerRef = useRef(null);
     const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
     const [streamingMessageId, setStreamingMessageId] = useState(null);
+    const navigate = useNavigate();
+    const { chatId } = useParams();
+    const location = useLocation();
 
     const backendUrl = '/api';
     const chatService = new ChatService(backendUrl);
@@ -26,6 +30,10 @@ const App = () => {
             try {
                 const data = await chatService.getChats();
                 setChats(data);
+                // If chatId exists in the URL, load that chat after chats are fetched
+                if (chatId) {
+                    handleChatSelect(chatId);
+                }
             } catch (error) {
                 console.error('Error fetching chats:', error);
             } finally {
@@ -34,7 +42,14 @@ const App = () => {
         };
 
         fetchChats();
-    }, []);
+    }, [chatId]);
+
+    useEffect(() => {
+        if (chatId) {
+            handleChatSelect(chatId);
+        }
+        // Optionally, handle cases where chatId is removed
+    }, [location]);
 
     const updateMessageById = (id, newText, sender, isFinal = false) => {
         setMessages(prevMessages => {
@@ -97,11 +112,14 @@ const App = () => {
         }
     }, [messages]);
 
-    const handleChatSelect = async (chatId) => {
-        setSelectedChatId(chatId);
+    const handleChatSelect = async (id) => {
+        // Demote non-urgent update for a smoother UI.
+        startTransition(() => {
+            setSelectedChatId(id);
+        });
         let lastMessageId = null;
         try {
-            const data = await chatService.getChatMessages(chatId);
+            const data = await chatService.getChatMessages(id);
 
             // Filter for messages with text (and optionally matching sender) then take last one.
             const filteredMessages = data.filter(msg => msg.text && msg.sender === 'assistant');
@@ -146,7 +164,7 @@ const App = () => {
             }
         };
 
-        streamChat(chatId);
+        streamChat(id);
     };
 
     const handleSubmit = async (e) => {
@@ -231,7 +249,7 @@ const App = () => {
                     {chats.map(chat => (
                         <li
                             key={chat.id}
-                            onClick={() => handleChatSelect(chat.id)}
+                            onClick={() => navigate(`/chat/${chat.id}`)}
                             className={`chat-item ${selectedChatId === chat.id ? 'selected' : ''}`}
                         >
                             <span className="chat-name">{chat.name}</span>
