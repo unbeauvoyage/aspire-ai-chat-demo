@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, startTransition } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import ChatService from '../services/ChatService';
 import Sidebar from './Sidebar';
 import ChatContainer from './ChatContainer';
@@ -12,6 +12,7 @@ const App = () => {
     const [prompt, setPrompt] = useState('');
     const [chats, setChats] = useState([]);
     const [selectedChatId, setSelectedChatId] = useState(null);
+    const selectedChatIdRef = useRef(null);
     const [loadingChats, setLoadingChats] = useState(true);
     const messagesEndRef = useRef(null);
     const [newChatName, setNewChatName] = useState('');
@@ -19,7 +20,7 @@ const App = () => {
     const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
     const [streamingMessageId, setStreamingMessageId] = useState(null);
     const { chatId } = useParams();
-    const location = useLocation();
+    const navigate = useNavigate();
 
     const chatService = new ChatService('/api/chat');
 
@@ -28,9 +29,6 @@ const App = () => {
             try {
                 const data = await chatService.getChats();
                 setChats(data);
-                if (chatId) {
-                    handleChatSelect(chatId);
-                }
             } catch (error) {
                 console.error('Error fetching chats:', error);
             } finally {
@@ -45,7 +43,66 @@ const App = () => {
         if (chatId) {
             handleChatSelect(chatId);
         }
-    }, [location]);
+    }, [chatId]);
+
+    const onSelectChat = (id) => {
+        navigate(`/chat/${id}`);
+    };
+
+    const handleChatSelect = async (id) => {
+        setSelectedChatId(id);
+        selectedChatIdRef.current = id;
+        // Clear the message list immediately on chat switch
+        setMessages([]);
+        let lastMessageId = null;
+        try {
+            const data = await chatService.getChatMessages(id);
+            const filteredMessages = data.filter(msg => msg.text && msg.sender === 'assistant');
+            const lastMessage = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : null;
+            lastMessageId = lastMessage ? lastMessage.id : null;
+
+            setMessages(data);
+            setTimeout(() => scrollToBottom('instant'), 100);
+        } catch (error) {
+            console.error('Error fetching chat messages:', error);
+        }
+
+        const streamChat = async (chatId) => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            abortControllerRef.current = new AbortController();
+            const currentChatId = chatId;
+
+            try {
+                const stream = chatService.stream(chatId, lastMessageId, abortControllerRef.current);
+                for await (const { id, sender, text, isFinal } of stream) {
+                    if (selectedChatIdRef.current !== currentChatId) break;
+                    console.debug('Received chunk:', id, sender, text, isFinal);
+                    updateMessageById(id, text, sender, isFinal);
+                    if (isFinal) {
+                        setStreamingMessageId(null);
+                    } else {
+                        setStreamingMessageId(current => current ? current : id);
+                    }
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Streaming error:', error);
+                    setMessages(prev =>
+                        prev.map(msg =>
+                            msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
+                        )
+                    );
+                }
+            }
+            finally {
+                setStreamingMessageId(null);
+            }
+        };
+
+        streamChat(id);
+    };
 
     const updateMessageById = (id, newText, sender, isFinal = false) => {
         setMessages(prevMessages => {
@@ -107,54 +164,6 @@ const App = () => {
         }
     }, [messages]);
 
-    const handleChatSelect = async (id) => {
-        setSelectedChatId(id);
-        let lastMessageId = null;
-        try {
-            const data = await chatService.getChatMessages(id);
-            const filteredMessages = data.filter(msg => msg.text && msg.sender === 'assistant');
-            const lastMessage = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : null;
-            lastMessageId = lastMessage ? lastMessage.id : null;
-
-            setMessages(data);
-            setTimeout(() => scrollToBottom('instant'), 100);
-        } catch (error) {
-            console.error('Error fetching chat messages:', error);
-        }
-
-        const streamChat = async (id) => {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
-            abortControllerRef.current = new AbortController();
-
-            try {
-                const stream = chatService.stream(id, lastMessageId, abortControllerRef.current);
-                for await (const { id, sender, text, isFinal } of stream) {
-                    console.debug('Received chunk:', id, sender, text, isFinal);
-                    updateMessageById(id, text, sender, isFinal);
-                    if (isFinal) {
-                        setStreamingMessageId(null);
-                    } else {
-                        setStreamingMessageId(current => current ? current : id);
-                    }
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Streaming error:', error);
-                    setMessages(prev =>
-                        prev.map(msg =>
-                            msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
-                        )
-                    );
-                }
-                setStreamingMessageId(null);
-            }
-        };
-
-        streamChat(id);
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!prompt.trim() || !selectedChatId) return;
@@ -170,9 +179,7 @@ const App = () => {
 
         try {
             chatService.sendPrompt(selectedChatId, prompt);
-
             setPrompt('');
-
         } catch (error) {
             console.error('Streaming error:', error);
             setMessages(prev =>
@@ -191,7 +198,7 @@ const App = () => {
             const newChat = await chatService.createChat(newChatName);
             setChats(prevChats => [...prevChats, newChat]);
             setNewChatName('');
-            handleChatSelect(newChat.id);
+            onSelectChat(newChat.id);
         } catch (error) {
             console.error('Error creating new chat:', error);
         }
@@ -225,6 +232,7 @@ const App = () => {
                 setNewChatName={setNewChatName}
                 handleNewChatSubmit={handleNewChatSubmit}
                 handleDeleteChat={handleDeleteChat}
+                onSelectChat={onSelectChat}
             />
             <ChatContainer
                 messages={messages}
@@ -233,8 +241,8 @@ const App = () => {
                 handleSubmit={handleSubmit}
                 cancelChat={cancelChat}
                 streamingMessageId={streamingMessageId}
-                messagesEndRef={messagesEndRef} // pass ref to ChatContainer
-                shouldAutoScroll={shouldAutoScroll} // pass auto scroll state
+                messagesEndRef={messagesEndRef}
+                shouldAutoScroll={shouldAutoScroll}
             />
         </div>
     );
