@@ -62,32 +62,10 @@ public static class ChatExtensions
             return Results.Created($"/api/chats/{conversation.Id}", conversation);
         });
 
-        group.MapPost("/{id}", async (Guid id, AppDbContext db, IChatClient chatClient, Prompt prompt, CancellationToken token, ChatStreamingCoordinator streaming) =>
+        group.MapPost("/{id}", async (Guid id, AppDbContext db, Prompt prompt, CancellationToken token, ChatStreamingCoordinator streaming) =>
         {
-            var conversation = await db.Conversations.FindAsync(id, token);
-
-            if (conversation is null)
-            {
-                return Results.NotFound();
-            }
-
-            conversation.Messages.Add(new()
-            {
-                Id = Guid.CreateVersion7(),
-                Role = ChatRole.User.Value,
-                Text = prompt.Text
-            });
-
-            // Actually save conversation history
-            await db.SaveChangesAsync(token);
-
-            // This is inefficient
-            var messages = conversation.Messages
-                .Select(m => new ChatMessage(new(m.Role), m.Text))
-                .ToList();
-
             // Fire and forget
-            _ = streaming.AddStreamingMessage(id, Guid.CreateVersion7(), messages);
+            await streaming.AddStreamingMessage(id, prompt.Text);
 
             return Results.Ok();
         });
@@ -122,6 +100,6 @@ public record NewConversation(string Name);
 
 public record ClientMessage(Guid Id, string Sender, string Text);
 
-public record ClientMessageFragment(Guid Id, string Text, Guid FragmentId, bool IsFinal = false);
+public record ClientMessageFragment(Guid Id, string Sender, string Text, Guid FragmentId, bool IsFinal = false);
 
 public record StreamContext(Guid? LastMessageId);

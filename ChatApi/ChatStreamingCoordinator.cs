@@ -8,19 +8,26 @@ public class ChatStreamingCoordinator(
     IConversationState conversationState,
     ICancellationManager cancellationManager)
 {
-    public async Task AddStreamingMessage(Guid conversationId, Guid assistantReplyId, List<ChatMessage> messages)
+    public async Task AddStreamingMessage(Guid conversationId, string text)
     {
-        logger.LogInformation("Adding streaming message for conversation {ConversationId}", conversationId);
-        await StreamMessages();
+        var messages = await SavePromptAndGetMessageHistoryAsync(conversationId, text);
 
-        async Task StreamMessages()
+        // Explicitly start the task to avoid blocking the caller.
+        _ = Task.Run(StreamReplyAsync);
+
+        async Task StreamReplyAsync()
         {
+
+            Guid assistantReplyId = Guid.CreateVersion7();
+
+            logger.LogInformation("Adding streaming message for conversation {ConversationId}", conversationId);
+
             var allChunks = new List<ChatResponseUpdate>();
 
             // Combine the provided cancellationToken with the distributed cancellation token.
             var token = cancellationManager.GetCancellationToken(assistantReplyId);
 
-            var fragment = new ClientMessageFragment(assistantReplyId, "Generating reply...", Guid.CreateVersion7());
+            var fragment = new ClientMessageFragment(assistantReplyId, ChatRole.Assistant.Value, "Generating reply...", Guid.CreateVersion7());
             await conversationState.PublishFragmentAsync(conversationId, fragment);
 
             try
@@ -30,7 +37,7 @@ public class ChatStreamingCoordinator(
                     if (update.Text is not null)
                     {
                         allChunks.Add(update);
-                        fragment = new ClientMessageFragment(assistantReplyId, update.Text, Guid.CreateVersion7());
+                        fragment = new ClientMessageFragment(assistantReplyId, ChatRole.Assistant.Value, update.Text, Guid.CreateVersion7());
                         await conversationState.PublishFragmentAsync(conversationId, fragment);
                     }
                 }
@@ -45,7 +52,7 @@ public class ChatStreamingCoordinator(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                fragment = new ClientMessageFragment(assistantReplyId, "Error streaming message", Guid.CreateVersion7());
+                fragment = new ClientMessageFragment(assistantReplyId, ChatRole.Assistant.Value, "Error streaming message", Guid.CreateVersion7());
                 await conversationState.PublishFragmentAsync(conversationId, fragment);
                 logger.LogError(ex, "Error streaming message for conversation {ConversationId}", conversationId);
 
@@ -54,13 +61,44 @@ public class ChatStreamingCoordinator(
             finally
             {
                 // Publish a final fragment to indicate the end of the message.
-                fragment = new ClientMessageFragment(assistantReplyId, "", Guid.CreateVersion7(), IsFinal: true);
+                fragment = new ClientMessageFragment(assistantReplyId, ChatRole.Assistant.Value, "", Guid.CreateVersion7(), IsFinal: true);
                 await conversationState.PublishFragmentAsync(conversationId, fragment);
 
                 // Clean up the cancellation token.
                 await cancellationManager.CancelAsync(assistantReplyId);
             }
         }
+    }
+
+    private async Task<IList<ChatMessage>> SavePromptAndGetMessageHistoryAsync(Guid id, string text)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var conversation = await db.Conversations.FindAsync(id) ?? throw new InvalidOperationException($"Conversation {id} not found");
+
+        var messageId = Guid.CreateVersion7();
+
+        conversation.Messages.Add(new()
+        {
+            Id = messageId,
+            Role = ChatRole.User.Value,
+            Text = text
+        });
+
+        // Actually save conversation history
+        await db.SaveChangesAsync();
+
+        // This is inefficient
+        var messages = conversation.Messages
+            .Select(m => new ChatMessage(new(m.Role), m.Text))
+            .ToList();
+
+        // Publish the initial fragment with the prompt text.
+        var fragment = new ClientMessageFragment(messageId, ChatRole.User.Value, text, Guid.CreateVersion7(), IsFinal: true);
+        await conversationState.PublishFragmentAsync(id, fragment);
+
+        return messages;
     }
 
     private async Task SaveAssistantMessageToDatabase(Guid conversationId, Guid messageId, string text)

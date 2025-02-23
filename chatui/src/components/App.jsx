@@ -36,8 +36,13 @@ const App = () => {
         fetchChats();
     }, []);
 
-    const updateMessageById = (id, newText) => {
+    const updateMessageById = (id, newText, sender, isFinal = false) => {
         setMessages(prevMessages => {
+            // Compare against the latest user message in the list
+            const lastUserMessage = prevMessages.filter(m => m.sender === 'user').slice(-1)[0];
+            if (isFinal && lastUserMessage && lastUserMessage.text === newText) {
+                return prevMessages; // no-op if duplicate of the user's message
+            }
             const existingMessage = prevMessages.find(msg => msg.id === id);
             if (existingMessage) {
                 return prevMessages.map(msg =>
@@ -45,7 +50,8 @@ const App = () => {
                         ? {
                             ...msg,
                             text: (msg.text === 'Generating reply...' ? newText : msg.text + newText),
-                            isLoading: false
+                            isLoading: false,
+                            sender: sender || msg.sender
                         }
                         : msg
                 );
@@ -54,7 +60,7 @@ const App = () => {
                     .filter(msg => msg.id !== loadingIndicatorId)
                     .concat({
                         id,
-                        sender: 'assistant',
+                        sender: sender || 'assistant',
                         text: newText,
                         isLoading: false
                     });
@@ -117,9 +123,9 @@ const App = () => {
 
             try {
                 const stream = chatService.stream(id, lastMessageId, abortControllerRef.current);
-                for await (const { id, text, isFinal } of stream) {
-                    console.debug('Received chunk:', id, text, isFinal);
-                    updateMessageById(id, text);
+                for await (const { id, sender, text, isFinal } of stream) {
+                    console.debug('Received chunk:', id, sender, text, isFinal);
+                    updateMessageById(id, text, sender, isFinal);
                     if (isFinal) {
                         setStreamingMessageId(null);
                     } else {

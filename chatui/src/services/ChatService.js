@@ -51,7 +51,12 @@ class ChatService {
         }
 
         for await (const value of streamJsonValues(response, abortController.signal)) {
-            yield { id: value.id, text: value.text, isFinal: value.isFinal ?? false };
+            yield { 
+                id: value.id, 
+                sender: value.sender, // include sender from the stream
+                text: value.text, 
+                isFinal: value.isFinal ?? false 
+            };
         }
     }
 
