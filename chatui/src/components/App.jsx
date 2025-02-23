@@ -15,6 +15,7 @@ const App = () => {
     const [newChatName, setNewChatName] = useState('');
     const abortControllerRef = useRef(null);
     const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+    const [isStreaming, setIsStreaming] = useState(false);
 
     const backendUrl = '/api';
     const chatService = new ChatService(backendUrl);
@@ -116,10 +117,15 @@ const App = () => {
 
             try {
                 const stream = chatService.stream(id, lastMessageId, abortControllerRef.current);
-                for await (const { id, text } of stream) {
-                    console.debug('Received chunk:', id, text);
-
+                for await (const { id, text, isFinal } of stream) {
+                    console.debug('Received chunk:', id, text, isFinal);
                     updateMessageById(id, text);
+                    if (isFinal) {
+                        setIsStreaming(false);
+                    } else {
+                        // Only set streaming to true if not already set
+                        setIsStreaming(current => current ? current : true);
+                    }
                 }
             } catch (error) {
                 if (error.name !== 'AbortError') {
@@ -130,6 +136,7 @@ const App = () => {
                         )
                     );
                 }
+                setIsStreaming(false);
             }
         };
 
@@ -139,6 +146,8 @@ const App = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!prompt.trim() || !selectedChatId) return;
+        // Prevent prompt submission while streaming.
+        if (isStreaming) return;
 
         // Add the user's message
         const userMessage = { id: Date.now(), sender: 'user', text: prompt };
@@ -254,10 +263,10 @@ const App = () => {
                         value={prompt}
                         onChange={e => setPrompt(e.target.value)}
                         placeholder="Enter your message..."
-                        disabled={!selectedChatId}
+                        disabled={!selectedChatId || isStreaming}
                         className="message-input"
                     />
-                    <button type="submit" disabled={!selectedChatId} className="message-button">
+                    <button type="submit" disabled={!selectedChatId || isStreaming} className="message-button">
                         Send
                     </button>
                 </form>

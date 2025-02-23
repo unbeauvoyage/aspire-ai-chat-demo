@@ -92,6 +92,13 @@ public static class ChatExtensions
             return Results.Ok();
         });
 
+        group.MapPost("/{id}/cancel", async (Guid id, ICancellationManager cancellationManager) =>
+        {
+            await cancellationManager.CancelAsync(id);
+
+            return Results.Ok();
+        });
+
         group.MapDelete("/{id}", async (Guid id, AppDbContext db) =>
         {
             var conversation = await db.Conversations.FindAsync(id);
@@ -115,6 +122,6 @@ public record NewConversation(string Name);
 
 public record ClientMessage(Guid Id, string Sender, string Text);
 
-public record ClientMessageFragment(Guid Id, string Text, Guid FragmentId);
+public record ClientMessageFragment(Guid Id, string Text, Guid FragmentId, bool IsFinal = false);
 
 public record StreamContext(Guid? LastMessageId);

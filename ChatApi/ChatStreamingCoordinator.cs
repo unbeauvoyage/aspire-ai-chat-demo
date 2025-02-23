@@ -1,16 +1,14 @@
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 using Microsoft.Extensions.AI;
 
 public class ChatStreamingCoordinator(
     IChatClient chatClient,
     IServiceScopeFactory scopeFactory,
     ILogger<ChatStreamingCoordinator> logger,
-    IConversationState conversationState)
+    IConversationState conversationState,
+    ICancellationManager cancellationManager)
 {
-    private readonly IConversationState _conversationState = conversationState;
-
-    public async Task AddStreamingMessage(Guid conversationId, Guid assistantReplyId, List<ChatMessage> messages, CancellationToken cancellationToken = default)
+    public async Task AddStreamingMessage(Guid conversationId, Guid assistantReplyId, List<ChatMessage> messages)
     {
         logger.LogInformation("Adding streaming message for conversation {ConversationId}", conversationId);
         await StreamMessages();
@@ -19,18 +17,21 @@ public class ChatStreamingCoordinator(
         {
             var allChunks = new List<ChatResponseUpdate>();
 
+            // Combine the provided cancellationToken with the distributed cancellation token.
+            var token = cancellationManager.GetCancellationToken(assistantReplyId);
+
             var fragment = new ClientMessageFragment(assistantReplyId, "Generating reply...", Guid.CreateVersion7());
-            await _conversationState.PublishFragmentAsync(conversationId, fragment);
+            await conversationState.PublishFragmentAsync(conversationId, fragment);
 
             try
             {
-                await foreach (var update in chatClient.GetStreamingResponseAsync(messages).WithCancellation(cancellationToken))
+                await foreach (var update in chatClient.GetStreamingResponseAsync(messages).WithCancellation(token))
                 {
                     if (update.Text is not null)
                     {
                         allChunks.Add(update);
                         fragment = new ClientMessageFragment(assistantReplyId, update.Text, Guid.CreateVersion7());
-                        await _conversationState.PublishFragmentAsync(conversationId, fragment);
+                        await conversationState.PublishFragmentAsync(conversationId, fragment);
                     }
                 }
 
@@ -45,10 +46,19 @@ public class ChatStreamingCoordinator(
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 fragment = new ClientMessageFragment(assistantReplyId, "Error streaming message", Guid.CreateVersion7());
-                await _conversationState.PublishFragmentAsync(conversationId, fragment);
+                await conversationState.PublishFragmentAsync(conversationId, fragment);
                 logger.LogError(ex, "Error streaming message for conversation {ConversationId}", conversationId);
 
                 await SaveAssistantMessageToDatabase(conversationId, assistantReplyId, "Error streaming message");
+            }
+            finally
+            {
+                // Publish a final fragment to indicate the end of the message.
+                fragment = new ClientMessageFragment(assistantReplyId, "", Guid.CreateVersion7(), IsFinal: true);
+                await conversationState.PublishFragmentAsync(conversationId, fragment);
+
+                // Clean up the cancellation token.
+                await cancellationManager.CancelAsync(assistantReplyId);
             }
         }
     }
@@ -71,7 +81,7 @@ public class ChatStreamingCoordinator(
             await db.SaveChangesAsync();
         }
 
-        await _conversationState.CompleteAsync(conversationId, messageId);
+        await conversationState.CompleteAsync(conversationId, messageId);
     }
 
     public async IAsyncEnumerable<ClientMessageFragment> GetMessageStream(
@@ -80,7 +90,7 @@ public class ChatStreamingCoordinator(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Getting message stream for conversation {ConversationId}, {LastMessageId}", conversationId, lastMessageId);
-        var stream = _conversationState.Subscribe(conversationId, lastMessageId, cancellationToken);
+        var stream = conversationState.Subscribe(conversationId, lastMessageId, cancellationToken);
 
         var lastDeliveredFragment = Guid.Empty;
 

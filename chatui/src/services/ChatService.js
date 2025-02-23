@@ -39,7 +39,7 @@ class ChatService {
         const response = await fetch(`${this.backendUrl}/chat/stream/${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lastMessageId: lastMessageId }),
+            body: JSON.stringify({ lastMessageId }),
             signal: abortController.signal
         });
         if (!response.ok) {
@@ -51,7 +51,7 @@ class ChatService {
         }
 
         for await (const value of streamJsonValues(response, abortController.signal)) {
-            yield { id: value.id, text: value.text };
+            yield { id: value.id, text: value.text, isFinal: value.isFinal ?? false };
         }
     }
 
@@ -80,6 +80,15 @@ class ChatService {
 
         if (!response.ok) {
             throw new Error('Failed to delete chat');
+        }
+    }
+
+    async cancelChat(id) {
+        const response = await fetch(`${this.backendUrl}/chat/${id}/cancel`, {
+            method: 'POST'
+        });
+        if (!response.ok) {
+            throw new Error('Failed to cancel chat');
         }
     }
 }
