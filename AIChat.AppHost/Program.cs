@@ -21,11 +21,16 @@ var conversations = builder.AddAzureCosmosDB("cosmos")
                            .AddCosmosDatabase("db")
                            .AddContainer("conversations", "/id");
 
+var cache = builder.AddRedis("cache")
+                   .WithRedisInsight();
+
 var chatapi = builder.AddProject<Projects.ChatApi>("chatapi")
                      .WithReference(model)
                      .WaitFor(model)
                      .WithReference(conversations)
                      .WaitFor(conversations)
+                     .WithReference(cache)
+                     .WaitFor(cache)
                      .PublishAsAzureContainerApp((infra, app) =>
                       {
                           app.Configuration.Ingress.AllowInsecure = true;

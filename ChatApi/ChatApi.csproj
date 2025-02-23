@@ -15,6 +15,7 @@
     <PackageReference Include="Aspire.Azure.AI.OpenAI" Version="9.1.0-preview.1.25118.7" />
     <PackageReference Include="OllamaSharp" Version="5.0.7" />
     <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.Cosmos" Version="9.1.0-preview.1.25118.7" />
+    <PackageReference Include="Aspire.StackExchange.Redis" Version="9.1.0-preview.1.25118.7" />
   </ItemGroup>
 
 </Project>
