@@ -24,6 +24,8 @@ var conversations = builder.AddAzureCosmosDB("cosmos")
                            .AddCosmosDatabase("db")
                            .AddContainer("conversations", "/id");
 
+// Redis is used to store and broadcast the live message stream
+// so that multiple clients can connect to the same conversation.
 var cache = builder.AddRedis("cache")
                    .WithRedisInsight();
 
