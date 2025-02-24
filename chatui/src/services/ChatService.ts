@@ -21,8 +21,23 @@ class ChatService {
     async ensureInitialized(): Promise<void> {
         if (!this.hubConnection && !this.initialized) {
             this.hubConnection = new signalR.HubConnectionBuilder()
-                .withUrl(`${this.backendUrl}/stream`)
-                .withAutomaticReconnect()
+                .withUrl(`${this.backendUrl}/stream`, {
+                    skipNegotiation: true,
+                    transport: signalR.HttpTransportType.WebSockets
+                })
+                .withStatefulReconnect()
+                .withAutomaticReconnect({
+                    nextRetryDelayInMilliseconds: retryContext => {
+                        // We want to retry forever
+                        if (retryContext.elapsedMilliseconds < 15 * 1000) {
+                            // Max 15 seconds delay
+                            return 15000;
+                        }
+
+                        // Otherwise, we want to retry every second
+                        return retryContext.previousRetryCount * 1000;
+                    }
+                })
                 .build();
 
             await this.hubConnection.start();
@@ -71,7 +86,7 @@ class ChatService {
     ): Promise<void> {
 
         await this.ensureInitialized();
-    
+
         if (!this.hubConnection) {
             throw new Error('ChatService not initialized');
         }

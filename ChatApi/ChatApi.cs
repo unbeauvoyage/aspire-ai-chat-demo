@@ -26,7 +26,7 @@ public static class ChatExtensions
             return Results.Ok(clientMessages);
         });
 
-        group.MapHub<ChatHub>("/stream");
+        group.MapHub<ChatHub>("/stream", o => o.AllowStatefulReconnects = true);
 
         group.MapPost("/", async (NewConversation newConversation, AppDbContext db) =>
         {
