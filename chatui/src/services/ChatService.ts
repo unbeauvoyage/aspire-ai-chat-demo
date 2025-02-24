@@ -29,7 +29,7 @@ class ChatService {
                 .withAutomaticReconnect({
                     nextRetryDelayInMilliseconds: retryContext => {
                         // We want to retry forever
-                        if (retryContext.elapsedMilliseconds < 15 * 1000) {
+                        if (retryContext.elapsedMilliseconds > 15 * 1000) {
                             // Max 15 seconds delay
                             return 15000;
                         }
