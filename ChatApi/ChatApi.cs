@@ -1,6 +1,4 @@
-using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.AI;
 
 public static class ChatExtensions
 {
