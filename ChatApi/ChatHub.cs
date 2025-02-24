@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 
 public class ChatHub : Hub
 {
-    public  IAsyncEnumerable<ClientMessageFragment> Stream(Guid id, StreamContext streamContext, ChatStreamingCoordinator streaming, CancellationToken token)
+    public IAsyncEnumerable<ClientMessageFragment> Stream(Guid id, StreamContext streamContext, ChatStreamingCoordinator streaming, CancellationToken token)
     {
         async IAsyncEnumerable<ClientMessageFragment> Stream()
         {
