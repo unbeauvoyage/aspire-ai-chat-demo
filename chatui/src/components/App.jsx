@@ -69,7 +69,7 @@ const App = () => {
 
         try {
             const data = await chatService.getChatMessages(id);
-            const filteredMessages = data.filter(msg => msg.text && msg.sender === 'assistant');
+            const filteredMessages = data.filter(msg => msg.text);
             const lastMessage = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : null;
             lastMessageId = lastMessage ? lastMessage.id : null;
 
@@ -91,6 +91,9 @@ const App = () => {
             // Stream messages while the chat is selected and not aborted
             while (abortController.signal.aborted === false &&
                 currentChatId === selectedChatIdRef.current) {
+
+                console.log('streamChat started:', chatId);
+
                 try {
                     const stream = chatService.stream(chatId, lastMessageId, lastFragmentId, abortController);
                     for await (const { id, sender, text, isFinal, fragmentId } of stream) {
@@ -100,18 +103,22 @@ const App = () => {
 
                         console.debug('Received chunk:', id, sender, text, isFinal, lastFragmentId);
 
-                        updateMessageById(id, text, sender, isFinal);
+                        // Update lastFragmentId for the next chunk
+                        lastFragmentId = fragmentId;
 
                         if (isFinal) {
                             // Reset lastMessageId and lastFragmentId when the message is final
                             lastMessageId = id;
                             setStreamingMessageId(null);
+
+                            // If the message is empty, skip it
+                            if (!text) continue;
+
                         } else {
                             setStreamingMessageId(current => current ? current : id);
                         }
 
-                        // Update lastFragmentId for the next chunk
-                        lastFragmentId = fragmentId;
+                        updateMessageById(id, text, sender, isFinal);
                     }
                 } catch (error) {
                     console.debug('streamChat error:', chatId, error);

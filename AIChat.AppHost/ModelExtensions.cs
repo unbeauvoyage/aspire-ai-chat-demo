@@ -47,14 +47,13 @@ public static class ModelExtensions
         return builder;
     }
 
-    public static IResourceBuilder<AIModel> PublishAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, string modelVersion, Action<IResourceBuilder<AzureOpenAIResource>>? configure = null)
+    public static IResourceBuilder<AIModel> PublishAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Action<IResourceBuilder<AzureOpenAIResource>>? configure)
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
         {
             builder.Reset();
 
-            var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name)
-                .AddDeployment(new(modelName, modelName, modelVersion));
+            var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name);
 
             configure?.Invoke(openAIModel);
 

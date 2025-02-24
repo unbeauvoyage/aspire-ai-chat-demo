@@ -8,6 +8,9 @@ public class ChatStreamingCoordinator(
     IConversationState conversationState,
     ICancellationManager cancellationManager)
 {
+    // TODO: Read this from configuration
+    private TimeSpan DefaultStreamItemTimeout = TimeSpan.FromMinutes(1);
+
     public async Task AddStreamingMessage(Guid conversationId, string text)
     {
         var messages = await SavePromptAndGetMessageHistoryAsync(conversationId, text);
@@ -17,10 +20,9 @@ public class ChatStreamingCoordinator(
 
         async Task StreamReplyAsync()
         {
-
             Guid assistantReplyId = Guid.CreateVersion7();
 
-            logger.LogInformation("Adding streaming message for conversation {ConversationId}", conversationId);
+            logger.LogInformation("Adding streaming message for conversation {ConversationId} {MessageId}", conversationId, assistantReplyId);
 
             var allChunks = new List<ChatResponseUpdate>();
 
@@ -32,8 +34,14 @@ public class ChatStreamingCoordinator(
 
             try
             {
-                await foreach (var update in chatClient.GetStreamingResponseAsync(messages).WithCancellation(token))
+                using var tokenSource = CancellationTokenSource.CreateLinkedTokenSource(token);
+                tokenSource.CancelAfter(DefaultStreamItemTimeout);
+
+                await foreach (var update in chatClient.GetStreamingResponseAsync(messages).WithCancellation(tokenSource.Token))
                 {
+                    // Extend the cancellation token's timeout for each update.
+                    tokenSource.CancelAfter(DefaultStreamItemTimeout);
+
                     if (update.Text is not null)
                     {
                         allChunks.Add(update);
@@ -42,7 +50,7 @@ public class ChatStreamingCoordinator(
                     }
                 }
 
-                logger.LogInformation("Full message received for conversation {ConversationId}", conversationId);
+                logger.LogInformation("Full message received for conversation {ConversationId} {MessageId}", conversationId, assistantReplyId);
 
                 if (allChunks.Count > 0)
                 {
@@ -50,11 +58,21 @@ public class ChatStreamingCoordinator(
                     await SaveAssistantMessageToDatabase(conversationId, assistantReplyId, fullMessage.Text!);
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException)
+            {
+                logger.LogInformation("Streaming message cancelled for conversation {ConversationId} {MessageId}", conversationId, assistantReplyId);
+
+                if (allChunks.Count > 0)
+                {
+                    var fullMessage = allChunks.ToChatResponse().Message;
+                    await SaveAssistantMessageToDatabase(conversationId, assistantReplyId, fullMessage.Text!);
+                }
+            }
+            catch (Exception ex)
             {
                 fragment = new ClientMessageFragment(assistantReplyId, ChatRole.Assistant.Value, "Error streaming message", Guid.CreateVersion7());
                 await conversationState.PublishFragmentAsync(conversationId, fragment);
-                logger.LogError(ex, "Error streaming message for conversation {ConversationId}", conversationId);
+                logger.LogError(ex, "Error streaming message for conversation {ConversationId} {MessageId}", conversationId, assistantReplyId);
 
                 await SaveAssistantMessageToDatabase(conversationId, assistantReplyId, "Error streaming message");
             }
