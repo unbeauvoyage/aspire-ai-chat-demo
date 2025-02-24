@@ -1,6 +1,6 @@
 public interface ICancellationManager
 {
-    CancellationToken GetCancellationToken(Guid assistantReplyId);
+    CancellationToken GetCancellationToken(Guid id);
     
-    Task CancelAsync(Guid assistantReplyId);
+    Task CancelAsync(Guid id);
 }
