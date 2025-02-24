@@ -40,6 +40,7 @@ public class RedisConversationState : IConversationState, IDisposable
         }
 
         ClientMessageFragment? fragment = null;
+
         try
         {
             fragment = JsonSerializer.Deserialize<ClientMessageFragment>((byte[])value!);
@@ -49,6 +50,7 @@ public class RedisConversationState : IConversationState, IDisposable
             _logger.LogError(ex, "Error deserializing message from channel {Channel}", channel);
             return;
         }
+
         if (fragment is null)
         {
             return;
@@ -74,16 +76,6 @@ public class RedisConversationState : IConversationState, IDisposable
 
         var buffer = _messageBuffers.GetOrAdd(fragment.Id, _ => new(_db, _subscriber, _logger, conversationId));
         await buffer.AddFragmentAsync(fragment);
-    }
-
-    private async Task<List<ClientMessageFragment>> GetBacklogAsync(Guid conversationId)
-    {
-        var key = GetBacklogKey(conversationId);
-        var values = await _db.ListRangeAsync(key);
-        return values.Select(v => JsonSerializer.Deserialize<ClientMessageFragment>(v!))
-                     .Where(f => f is not null)
-                     .Cast<ClientMessageFragment>()
-                     .ToList();
     }
 
     private static void AddLocalSubscriber(Guid conversationId, Action<ClientMessageFragment> callback)
@@ -118,33 +110,35 @@ public class RedisConversationState : IConversationState, IDisposable
         // Register a local callback BEFORE retrieving the backlog.
         void LocalCallback(ClientMessageFragment fragment)
         {
-            // Only fan out fragments that are newer than lastMessageId.
             if (lastMessageId != null && fragment.Id <= lastMessageId)
             {
                 return;
             }
+
             _logger.LogDebug("Fanning out fragment {FragmentId} for conversation {ConversationId}", fragment.Id, conversationId);
+
             channel.Writer.TryWrite(fragment);
         }
+
         AddLocalSubscriber(conversationId, LocalCallback);
 
-        // Then fetch and yield backlog. If lastMessageId is specified, skip fragments up to matching id.
-        var backlog = await GetBacklogAsync(conversationId);
+        // Inline backlog logic: iterate over the fetched RedisValues and yield fragments directly.
 
-        foreach (var fragment in backlog)
+        var key = GetBacklogKey(conversationId);
+        var values = await _db.ListRangeAsync(key);
+        for (int i = 0; i < values.Length; i++)
         {
-            if (lastMessageId is not null && fragment.Id <= lastMessageId)
+            var fragment = JsonSerializer.Deserialize<ClientMessageFragment>(values[i]!);
+            if (fragment is not null && (lastMessageId is null || fragment.Id > lastMessageId))
             {
-                continue;
+                yield return fragment;
             }
-
-            yield return fragment;
         }
 
         try
         {
             using var reg = cancellationToken.Register(() => channel.Writer.TryComplete());
-            await foreach (var fragment in channel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var fragment in channel.Reader.ReadAllAsync())
             {
                 yield return fragment;
             }
@@ -187,7 +181,7 @@ public class RedisConversationState : IConversationState, IDisposable
         // It uses a timer and size threshold to trigger a flush to Redis,
         // reducing network round-trips. Once flushing is triggered (or on disposal),
         // the buffer is drained and the fragments are sent to Redis.
-        
+
         private readonly IDatabase _db;
         private readonly ISubscriber _subscriber;
         private readonly ILogger<RedisConversationState> _logger;
