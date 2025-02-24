@@ -1,11 +1,33 @@
-import { streamJsonValues } from './stream';
 import { Chat, Message, MessageFragment } from '../types/ChatTypes';
+import * as signalR from '@microsoft/signalr';
 
 class ChatService {
-    backendUrl: string;
+    private static instance: ChatService;
+    private hubConnection?: signalR.HubConnection;
+    private initialized = false;
+    private backendUrl: string;
 
-    constructor(backendUrl: string) {
+    private constructor(backendUrl: string) {
         this.backendUrl = backendUrl;
+    }
+
+    static getInstance(backendUrl: string): ChatService {
+        if (!ChatService.instance) {
+            ChatService.instance = new ChatService(backendUrl);
+        }
+        return ChatService.instance;
+    }
+
+    async ensureInitialized(): Promise<void> {
+        if (!this.hubConnection && !this.initialized) {
+            this.hubConnection = new signalR.HubConnectionBuilder()
+                .withUrl(`${this.backendUrl}/stream`)
+                .withAutomaticReconnect()
+                .build();
+
+            await this.hubConnection.start();
+            this.initialized = true;
+        }
     }
 
     async getChats(): Promise<Chat[]> {
@@ -38,32 +60,48 @@ class ChatService {
         return await response.json();
     }
 
-    async *stream(id: string, lastMessageId: string, lastFragmentId: string, abortController: AbortController): AsyncGenerator<MessageFragment> {
-        const response = await fetch(`${this.backendUrl}/stream/${id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lastMessageId, lastFragmentId }),
-            signal: abortController.signal
+    async stream(
+        id: string,
+        lastMessageId: string,
+        lastFragmentId: string,
+        abortController: AbortController,
+        onMessage: (fragment: MessageFragment) => void,
+        onComplete?: () => void,
+        onError?: (error: Error) => void
+    ): Promise<void> {
+
+        await this.ensureInitialized();
+    
+        if (!this.hubConnection) {
+            throw new Error('ChatService not initialized');
+        }
+
+        const streamContext = { lastMessageId, lastFragmentId };
+        const subscription = this.hubConnection.stream("Stream", id, streamContext)
+            .subscribe({
+                next: (value) => {
+                    const fragment: MessageFragment = {
+                        id: value.id,
+                        sender: value.sender,
+                        text: value.text,
+                        isFinal: value.isFinal ?? false,
+                        fragmentId: value.fragmentId
+                    };
+                    onMessage(fragment);
+                },
+                complete: () => {
+                    console.debug(`Stream completed for chat: ${id}`);
+                    onComplete?.();
+                },
+                error: (err) => {
+                    console.error(`Stream error for chat: ${id}:`, err);
+                    onError?.(err);
+                }
+            });
+
+        abortController.signal.addEventListener('abort', () => {
+            subscription.dispose();
         });
-        if (!response.ok) {
-            throw new Error('Error fetching chat stream');
-        }
-
-        if (!response.body) {
-            throw new Error('ReadableStream not supported in this browser.');
-        }
-
-        for await (const value of streamJsonValues(response, abortController.signal)) {
-            yield {
-                id: value.id,
-                sender: value.sender,
-                text: value.text,
-                isFinal: value.isFinal ?? false,
-                fragmentId: value.fragmentId
-            };
-        }
-
-        console.debug(`Stream ended for chat: ${id}`);
     }
 
     async sendPrompt(id: string, prompt: string): Promise<void> {

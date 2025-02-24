@@ -12,6 +12,11 @@ export default defineConfig({
       '/api': {
         target: process.env.BACKEND_URL,
         changeOrigin: true,
+      },
+      '/api/chat/stream': {
+        target: process.env.BACKEND_URL,
+        ws: true,
+        changeOrigin: true,
       }
     }
   },

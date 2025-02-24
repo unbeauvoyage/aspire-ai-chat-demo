@@ -26,26 +26,7 @@ public static class ChatExtensions
             return Results.Ok(clientMessages);
         });
 
-        group.MapPost("/stream/{id}", (Guid id, StreamContext streamContext, ChatStreamingCoordinator streaming, CancellationToken token) =>
-        {
-            async IAsyncEnumerable<ClientMessageFragment> StreamMessages()
-            {
-                // This simulates a flaky connection
-                // #if CHAOS
-                //                 using var ts = CancellationTokenSource.CreateLinkedTokenSource(token);
-                //                 ts.CancelAfter(5000);
-                //                 token = ts.Token;
-                // #endif
-
-                await foreach (var message in streaming.GetMessageStream(id, streamContext.LastMessageId, streamContext.LastFragmentId).WithCancellation(token))
-                {
-                    yield return message;
-                    await Task.Yield();
-                }
-            }
-
-            return StreamMessages();
-        });
+        group.MapHub<ChatHub>("/stream");
 
         group.MapPost("/", async (NewConversation newConversation, AppDbContext db) =>
         {

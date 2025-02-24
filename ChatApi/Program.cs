@@ -11,6 +11,8 @@ builder.Services.AddSingleton<ChatStreamingCoordinator>();
 builder.Services.AddSingleton<IConversationState, RedisConversationState>();
 builder.Services.AddSingleton<ICancellationManager, RedisCancellationManager>();
 
+builder.Services.AddSignalR();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
