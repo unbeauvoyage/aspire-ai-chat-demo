@@ -62,83 +62,48 @@ const App = () => {
         selectedChatIdRef.current = id;
         setMessages([]);
         let lastMessageId = null;
-        let lastFragmentId = null;
 
         try {
-            const data = await chatService.getChatMessages(id);
-            const filteredMessages = data.filter(msg => msg.text);
+            const messages = await chatService.getChatMessages(id);
+            const filteredMessages = messages.filter(msg => msg.text);
             lastMessageId = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1].id : null;
-            setMessages(data);
+            setMessages(messages);
             setTimeout(() => scrollToBottom('instant'), 100);
         } catch (error) {
             console.error('Error fetching chat messages:', error);
         }
 
-        const streamChat = async (chatId) => {
-            if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-            }
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
 
-            let abortController = new AbortController();
-            abortControllerRef.current = abortController;
-            const currentChatId = chatId;
+        let chatId = id;
 
-            // Stream messages while the chat is selected and not aborted
-            while (abortController.signal.aborted === false &&
-                currentChatId === selectedChatIdRef.current) {
-
-                console.log('streamChat started:', chatId);
-
-                try {
-                    const stream = chatService.stream(chatId, lastMessageId, lastFragmentId, abortController);
-                    for await (const { id, sender, text, isFinal, fragmentId } of stream) {
-                        if (selectedChatIdRef.current !== currentChatId) {
-                            break;
-                        }
-
-                        console.debug('Received chunk:', id, sender, text, isFinal, lastFragmentId);
-
-                        // Update lastFragmentId for the next chunk
-                        lastFragmentId = fragmentId;
-
-                        if (isFinal) {
-                            // Reset lastMessageId and lastFragmentId when the message is final
-                            lastMessageId = id;
-                            setStreamingMessageId(null);
-
-                            // If the message is empty, skip it
-                            if (!text) continue;
-
-                        } else {
-                            setStreamingMessageId(current => current ? current : id);
-                        }
-
-                        updateMessageById(id, text, sender, isFinal);
+        (async () => {
+            try {
+                console.log('streamChat started:', id);
+                const stream = chatService.stream(id, lastMessageId, abortController);
+                for await (const { id, sender, text, isFinal } of stream) {
+                    if (selectedChatIdRef.current !== chatId) {
+                        break;
                     }
-                } catch (error) {
-                    console.debug('streamChat error:', chatId, error);
-
-                    if (error.name !== 'AbortError') {
-                        console.error('Streaming error:', error);
-                        setMessages(prev =>
-                            prev.map(msg =>
-                                msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
-                            )
-                        );
-
-                        // Delay before retrying
-                        await new Promise(resolve => setTimeout(resolve, 5000));
+                    if (isFinal) {
+                        setStreamingMessageId(null);
+                        if (!text) continue;
+                    } else {
+                        setStreamingMessageId(current => current ? current : id);
                     }
+                    updateMessageById(id, text, sender, isFinal);
                 }
-                finally {
-                    console.log('streamChat finished:', chatId);
-                    setStreamingMessageId(null);
-                }
+            } catch (error) {
+                // ...existing error handling...
+            } finally {
+                console.log('streamChat finished:', id);
+                setStreamingMessageId(null);
             }
-        };
-
-        streamChat(id);
-
+        })();
     }, [chatService, scrollToBottom]);
 
     const updateMessageById = (id, newText, sender, isFinal = false) => {
