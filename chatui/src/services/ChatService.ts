@@ -1,11 +1,13 @@
 import { Chat, Message, MessageFragment } from '../types/ChatTypes';
 import * as signalR from '@microsoft/signalr';
+import { UnboundedChannel } from '../utils/UnboundedChannel';
 
 class ChatService {
     private static instance: ChatService;
     private hubConnection?: signalR.HubConnection;
     private initialized = false;
     private backendUrl: string;
+    private activeStreams = new Map<string, UnboundedChannel<MessageFragment>>();
 
     private constructor(backendUrl: string) {
         this.backendUrl = backendUrl;
@@ -20,6 +22,7 @@ class ChatService {
 
     async ensureInitialized(): Promise<void> {
         if (!this.hubConnection && !this.initialized) {
+            console.debug('Initializing SignalR connection...');
             this.hubConnection = new signalR.HubConnectionBuilder()
                 .withUrl(`${this.backendUrl}/stream`, {
                     skipNegotiation: true,
@@ -35,10 +38,19 @@ class ChatService {
                         }
 
                         // Otherwise, we want to retry every second
-                        return retryContext.previousRetryCount * 1000;
+                        return (retryContext.previousRetryCount + 1) * 1000;
                     }
                 })
                 .build();
+
+            this.hubConnection.onreconnected(async () => {
+                console.debug('Reconnected to SignalR hub');
+
+                for (const subscription of this.activeStreams.values()) {
+                    subscription?.close();
+                }
+                this.activeStreams.clear();
+            });
 
             await this.hubConnection.start();
             this.initialized = true;
@@ -75,15 +87,12 @@ class ChatService {
         return await response.json();
     }
 
-    async stream(
+    async *stream(
         id: string,
         lastMessageId: string,
         lastFragmentId: string,
-        abortController: AbortController,
-        onMessage: (fragment: MessageFragment) => void,
-        onComplete?: () => void,
-        onError?: (error: Error) => void
-    ): Promise<void> {
+        abortController: AbortController
+    ): AsyncGenerator<MessageFragment> {
 
         await this.ensureInitialized();
 
@@ -91,8 +100,9 @@ class ChatService {
             throw new Error('ChatService not initialized');
         }
 
-        const streamContext = { lastMessageId, lastFragmentId };
-        const subscription = this.hubConnection.stream("Stream", id, streamContext)
+        let channel = new UnboundedChannel<MessageFragment>();
+
+        const subscription = this.hubConnection.stream("Stream", id, { lastMessageId, lastFragmentId })
             .subscribe({
                 next: (value) => {
                     const fragment: MessageFragment = {
@@ -102,21 +112,37 @@ class ChatService {
                         isFinal: value.isFinal ?? false,
                         fragmentId: value.fragmentId
                     };
-                    onMessage(fragment);
+
+                    channel.write(fragment);
                 },
                 complete: () => {
                     console.debug(`Stream completed for chat: ${id}`);
-                    onComplete?.();
+                    channel.close();
                 },
                 error: (err) => {
                     console.error(`Stream error for chat: ${id}:`, err);
-                    onError?.(err);
+                    // Don't close the channel on error, just log it
+                    // if the connection breaks, signalr will reconnect
+                    // and we'll close the channel then so that the caller
+                    // can handle the error and retry
                 }
             });
 
+        this.activeStreams.set(id, channel);
+
         abortController.signal.addEventListener('abort', () => {
-            subscription.dispose();
+            console.log(`Aborting stream for chat: ${id}`);
+            channel.close();
         });
+
+        try {
+            for await (const fragment of channel) {
+                yield fragment;
+            }
+        } finally {
+            subscription?.dispose();
+            this.activeStreams.delete(id);
+        }
     }
 
     async sendPrompt(id: string, prompt: string): Promise<void> {

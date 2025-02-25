@@ -38,7 +38,7 @@ const App = () => {
         };
 
         fetchChats();
-        
+
         if (chatId) {
             handleChatSelect(chatId);
         }
@@ -74,53 +74,70 @@ const App = () => {
             console.error('Error fetching chat messages:', error);
         }
 
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
+        const streamChat = async (chatId) => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
 
-        const abortController = new AbortController();
-        abortControllerRef.current = abortController;
+            let abortController = new AbortController();
+            abortControllerRef.current = abortController;
+            const currentChatId = chatId;
 
-        var chatId = id;
+            // Stream messages while the chat is selected and not aborted
+            while (abortController.signal.aborted === false &&
+                currentChatId === selectedChatIdRef.current) {
 
-        await chatService.stream(
-            chatId,
-            lastMessageId,
-            lastFragmentId,
-            abortController,
-            ({ id, sender, text, isFinal, fragmentId }) => {
-                if (selectedChatIdRef.current !== chatId) return;
+                console.log('streamChat started:', chatId);
 
-                console.debug('Received chunk:', id, sender, text, isFinal, lastFragmentId);
-                lastFragmentId = fragmentId;
+                try {
+                    const stream = chatService.stream(chatId, lastMessageId, lastFragmentId, abortController);
+                    for await (const { id, sender, text, isFinal, fragmentId } of stream) {
+                        if (selectedChatIdRef.current !== currentChatId) {
+                            break;
+                        }
 
-                if (isFinal) {
-                    lastMessageId = id;
-                    setStreamingMessageId(null);
-                    if (!text) return;
-                } else {
-                    setStreamingMessageId(current => current ? current : id);
+                        console.debug('Received chunk:', id, sender, text, isFinal, lastFragmentId);
+
+                        // Update lastFragmentId for the next chunk
+                        lastFragmentId = fragmentId;
+
+                        if (isFinal) {
+                            // Reset lastMessageId and lastFragmentId when the message is final
+                            lastMessageId = id;
+                            setStreamingMessageId(null);
+
+                            // If the message is empty, skip it
+                            if (!text) continue;
+
+                        } else {
+                            setStreamingMessageId(current => current ? current : id);
+                        }
+
+                        updateMessageById(id, text, sender, isFinal);
+                    }
+                } catch (error) {
+                    console.debug('streamChat error:', chatId, error);
+
+                    if (error.name !== 'AbortError') {
+                        console.error('Streaming error:', error);
+                        setMessages(prev =>
+                            prev.map(msg =>
+                                msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
+                            )
+                        );
+
+                        // Delay before retrying
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                    }
                 }
-
-                updateMessageById(id, text, sender, isFinal);
-            },
-            () => {
-                console.debug('Stream completed for chat:', id);
-                setStreamingMessageId(null);
-            },
-            (error) => {
-                console.error('Stream error:', error);
-                if (error.name !== 'AbortError') {
-                    setMessages(prev =>
-                        prev.map(msg =>
-                            msg.id === loadingIndicatorId ?
-                                { ...msg, text: '[Error in receiving response]', isLoading: false } :
-                                msg
-                        )
-                    );
+                finally {
+                    console.log('streamChat finished:', chatId);
+                    setStreamingMessageId(null);
                 }
             }
-        );
+        };
+
+        streamChat(id);
 
     }, [chatService, scrollToBottom]);
 
