@@ -150,13 +150,15 @@ public partial class RedisConversationState : IConversationState, IDisposable
         }
     }
 
-    public Task CompleteAsync(Guid conversationId, Guid messageId)
+    public async Task CompleteAsync(Guid conversationId, Guid messageId)
     {
         if (_messageBuffers.TryRemove(messageId, out var buffer))
         {
-            return buffer.DisposeAsync().AsTask();
+            await buffer.DisposeAsync();
         }
-        return Task.CompletedTask;
+
+        // Remove the backlog after 5 minutes of inactivity.
+        await _db.KeyExpireAsync(GetBacklogKey(conversationId), TimeSpan.FromMinutes(5));
     }
 
     public void Dispose()
