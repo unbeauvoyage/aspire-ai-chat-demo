@@ -46,8 +46,8 @@ class ChatService {
             this.hubConnection.onreconnected(async () => {
                 console.debug('Reconnected to SignalR hub');
 
-                for (const subscription of this.activeStreams.values()) {
-                    subscription?.close();
+                for (const channel of this.activeStreams.values()) {
+                    channel?.close();
                 }
                 this.activeStreams.clear();
             });
@@ -101,61 +101,67 @@ class ChatService {
         let lastFragmentId: string | undefined;
         let lastMessageId = initialLastMessageId;
 
-        abortController.signal.addEventListener('abort', () => {
+        // Set up and store the abort event handler
+        const abortHandler = () => {
             console.log(`Aborting stream for chat: ${id}`);
-
             this.activeStreams.get(id)?.close();
-        });
+        };
 
-        while (!abortController.signal.aborted) {
-            let channel = new UnboundedChannel<MessageFragment>();
-            this.activeStreams.set(id, channel);
+        abortController.signal.addEventListener('abort', abortHandler);
 
-            let subscription = this.hubConnection.stream("Stream", id, { lastMessageId, lastFragmentId })
-                .subscribe({
-                    next: (value) => {
-                        const fragment: MessageFragment = {
-                            id: value.id,
-                            sender: value.sender,
-                            text: value.text,
-                            isFinal: value.isFinal ?? false,
-                            fragmentId: value.fragmentId
-                        };
-                        lastFragmentId = fragment.fragmentId;
-                        if (fragment.isFinal) {
-                            lastMessageId = fragment.id;
+        try {
+            while (!abortController.signal.aborted) {
+                let channel = new UnboundedChannel<MessageFragment>();
+                this.activeStreams.set(id, channel);
+
+                let subscription = this.hubConnection.stream("Stream", id, { lastMessageId, lastFragmentId })
+                    .subscribe({
+                        next: (value) => {
+                            const fragment: MessageFragment = {
+                                id: value.id,
+                                sender: value.sender,
+                                text: value.text,
+                                isFinal: value.isFinal ?? false,
+                                fragmentId: value.fragmentId
+                            };
+                            lastFragmentId = fragment.fragmentId;
+                            if (fragment.isFinal) {
+                                lastMessageId = fragment.id;
+                            }
+                            channel.write(fragment);
+                        },
+                        complete: () => {
+                            console.debug(`Stream completed for chat: ${id}`);
+                            channel.close();
+                        },
+                        error: (err) => {
+                            // Don't close the channel on error, if the connection breaks, signalr will reconnect
+                            // and we'll close the channel
                         }
-                        channel.write(fragment);
-                    },
-                    complete: () => {
-                        console.debug(`Stream completed for chat: ${id}`);
-                        channel.close();
-                    },
-                    error: (err) => {
-                        // Don't close the channel on error, if the connection breaks, signalr will reconnect
-                        // and we'll close the channel
+                    });
+
+                try {
+                    for await (const fragment of channel) {
+                        yield fragment;
                     }
-                });
-
-            try {
-                for await (const fragment of channel) {
-                    yield fragment;
+                } catch (error) {
+                    console.error('Stream error:', error);
+                    // Only break the loop if we're aborting
+                    if (abortController.signal.aborted) {
+                        break;
+                    }
+                } finally {
+                    subscription?.dispose();
+                    this.activeStreams.delete(id);
                 }
-            } catch (error) {
-                console.error('Stream error:', error);
-                // Only break the loop if we're aborting
-                if (abortController.signal.aborted) {
-                    break;
-                }
-            } finally {
-                subscription?.dispose();
-                this.activeStreams.delete(id);
-            }
 
-            // If we're not aborting, wait a second before retrying
-            if (!abortController.signal.aborted) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // If we're not aborting, wait a second before retrying
+                if (!abortController.signal.aborted) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
+        } finally {
+            abortController.signal.removeEventListener('abort', abortHandler);
         }
     }
 
