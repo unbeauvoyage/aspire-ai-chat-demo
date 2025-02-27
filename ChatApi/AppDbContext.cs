@@ -24,4 +24,5 @@ public class Conversation
     public required Guid Id { get; set; }
     public required string Name { get; set; }
     public required List<ConversationChatMessage> Messages { get; set; } = [];
+    public bool IsWaitingForResponse { get; set; }
 }

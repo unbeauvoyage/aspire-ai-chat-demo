@@ -161,6 +161,36 @@ public partial class RedisConversationState : IConversationState, IDisposable
         await _db.KeyExpireAsync(GetBacklogKey(conversationId), TimeSpan.FromMinutes(5));
     }
 
+    public async Task<IList<ClientMessage>> GetUnpublishedMessagesAsync(Guid conversationId)
+    {
+        var key = GetBacklogKey(conversationId);
+        var values = await _db.ListRangeAsync(key);
+        var fragments = new List<ClientMessageFragment>(values.Length);
+
+        for (int i = 0; i < values.Length; i++)
+        {
+            var fragment = JsonSerializer.Deserialize<ClientMessageFragment>(values[i]!);
+            if (fragment is not null)
+            {
+                fragments.Add(fragment);
+            }
+        }
+
+        var messages = new List<ClientMessage>();
+
+        foreach (var g in fragments.GroupBy(f => f.Id))
+        {
+            // The first fragment has the "Generating reply..." text.
+            var coalescedFragment = CoalesceFragments([.. g.Skip(1)]);
+
+            var message = new ClientMessage(coalescedFragment.Id, coalescedFragment.Sender, coalescedFragment.Text);
+
+            messages.Add(message);
+        }
+
+        return messages;
+    }
+
     public void Dispose()
     {
         try

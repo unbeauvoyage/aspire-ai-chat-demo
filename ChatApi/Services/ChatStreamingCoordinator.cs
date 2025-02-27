@@ -97,6 +97,8 @@ public class ChatStreamingCoordinator(
 
         var messageId = Guid.CreateVersion7();
 
+        conversation.IsWaitingForResponse = true;
+
         conversation.Messages.Add(new()
         {
             Id = messageId,
@@ -127,6 +129,8 @@ public class ChatStreamingCoordinator(
         var conversation = await db.Conversations.FindAsync(conversationId);
         if (conversation is not null)
         {
+            conversation.IsWaitingForResponse = false;
+
             conversation.Messages.Add(new ConversationChatMessage
             {
                 Id = messageId,

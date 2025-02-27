@@ -150,27 +150,27 @@ public partial class RedisConversationState
                 _flushLock.Dispose();
             }
         }
+    }
 
-        private static ClientMessageFragment CoalesceFragments(List<ClientMessageFragment> fragments)
+    internal static ClientMessageFragment CoalesceFragments(List<ClientMessageFragment> fragments)
+    {
+        var lastFragment = fragments[^1];
+        int count = fragments.Count;
+        int totalLength = 0;
+        for (int i = 0; i < count; i++)
         {
-            var lastFragment = fragments[^1];
-            int count = fragments.Count;
-            int totalLength = 0;
-            for (int i = 0; i < count; i++)
-            {
-                totalLength += fragments[i].Text.Length;
-            }
-            string combined = string.Create(totalLength, fragments, (span, frags) =>
-            {
-                int pos = 0;
-                for (int i = 0; i < frags.Count; i++)
-                {
-                    ReadOnlySpan<char> text = frags[i].Text;
-                    text.CopyTo(span.Slice(pos));
-                    pos += text.Length;
-                }
-            });
-            return new ClientMessageFragment(lastFragment.Id, lastFragment.Sender, combined, lastFragment.FragmentId, lastFragment.IsFinal);
+            totalLength += fragments[i].Text.Length;
         }
+        string combined = string.Create(totalLength, fragments, (span, frags) =>
+        {
+            int pos = 0;
+            for (int i = 0; i < frags.Count; i++)
+            {
+                ReadOnlySpan<char> text = frags[i].Text;
+                text.CopyTo(span.Slice(pos));
+                pos += text.Length;
+            }
+        });
+        return new ClientMessageFragment(lastFragment.Id, lastFragment.Sender, combined, lastFragment.FragmentId, lastFragment.IsFinal);
     }
 }
