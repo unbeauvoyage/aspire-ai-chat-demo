@@ -8,7 +8,6 @@ builder.AddCosmosDbContext<AppDbContext>("conversations", "db");
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<ChatStreamingCoordinator>();
-builder.Services.AddHostedService<ConversationScavenger>();
 
 builder.Services.AddSingleton<IConversationState, RedisConversationState>();
 builder.Services.AddSingleton<ICancellationManager, RedisCancellationManager>();
