@@ -23,6 +23,7 @@ Aspire AI Chat is a full-stack chat sample that combines modern technologies to 
 
 - [.NET 9.0](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
 - [Docker](https://www.docker.com/get-started) or [Podman](https://podman-desktop.io/)
+- [Node.js](https://nodejs.org/) (LTS version recommended)
 
 ### Running the Application
 
