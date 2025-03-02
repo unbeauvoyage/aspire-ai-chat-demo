@@ -114,6 +114,23 @@ const App: React.FC = () => {
     }, [chatService, scrollToBottom]);
 
     const updateMessageById = (id: string, newText: string, sender: string, isFinal: boolean = false) => {
+        const generatingReplyMessageText = 'Generating reply...';
+
+        function getMessageText(existingText: string, newText: string): string {
+            // If the existing text is the same as the generating reply message text, replace it with the new text 
+            if (existingText === generatingReplyMessageText) {
+                return newText;
+            }
+
+            // If the existing text starts with the generating reply message text, replace it with the new text
+            if (existingText.startsWith(generatingReplyMessageText)) {
+                return existingText.replace(generatingReplyMessageText, '') + newText;
+            }
+
+            // Otherwise, append the new text to the existing text
+            return existingText + newText;
+        }
+
         setMessages(prevMessages => {
             const lastUserMessage = prevMessages.filter(m => m.sender === 'user').slice(-1)[0];
             if (isFinal && lastUserMessage && lastUserMessage.text === newText) {
@@ -125,7 +142,7 @@ const App: React.FC = () => {
                     msg.id === id
                         ? {
                             ...msg,
-                            text: (msg.text === 'Generating reply...' ? newText : msg.text + newText),
+                            text: getMessageText(msg.text, newText),
                             isLoading: false,
                             sender: sender || msg.sender
                         }
