@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import type { UserConfig, ServerOptions } from 'vite';
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : undefined;
 
@@ -23,4 +24,4 @@ export default defineConfig({
   build: {
     outDir: 'build'
   }
-});
+} as UserConfig);

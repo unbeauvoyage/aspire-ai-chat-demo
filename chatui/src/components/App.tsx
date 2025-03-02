@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ChatService from '../services/ChatService';
+import { Message, Chat } from '../types/ChatTypes';
 import Sidebar from './Sidebar';
 import ChatContainer from './ChatContainer';
 import VirtualizedChatList from './VirtualizedChatList';
@@ -8,22 +9,27 @@ import './App.css';
 
 const loadingIndicatorId = 'loading-indicator';
 
-const App = () => {
-    const [messages, setMessages] = useState([]);
-    const [prompt, setPrompt] = useState('');
-    const [chats, setChats] = useState([]);
-    const [selectedChatId, setSelectedChatId] = useState(null);
-    const selectedChatIdRef = useRef(null);
-    const [loadingChats, setLoadingChats] = useState(true);
-    const messagesEndRef = useRef(null);
-    const [newChatName, setNewChatName] = useState('');
-    const abortControllerRef = useRef(null);
-    const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
-    const [streamingMessageId, setStreamingMessageId] = useState(null);
-    const { chatId } = useParams();
+interface ChatParams {
+    chatId?: string;
+    [key: string]: string | undefined;
+}
+
+const App: React.FC = () => {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [prompt, setPrompt] = useState<string>('');
+    const [chats, setChats] = useState<Chat[]>([]);
+    const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+    const selectedChatIdRef = useRef<string | number | null>(null);
+    const [loadingChats, setLoadingChats] = useState<boolean>(true);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [newChatName, setNewChatName] = useState<string>('');
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const [shouldAutoScroll, setShouldAutoScroll] = useState<boolean>(true);
+    const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+    const { chatId } = useParams<ChatParams>();
     const navigate = useNavigate();
 
-    const chatService = useMemo(() => new ChatService('/api/chat'), []);
+    const chatService = useMemo(() => ChatService.getInstance('/api/chat'), []);
 
     useEffect(() => {
         const fetchChats = async () => {
@@ -44,11 +50,11 @@ const App = () => {
         }
     }, [chatId, chatService]);
 
-    const onSelectChat = useCallback((id) => {
+    const onSelectChat = useCallback((id: string) => {
         navigate(`/chat/${id}`);
     }, [navigate]);
 
-    const scrollToBottom = useCallback((behavior = 'smooth') => {
+    const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
         if (messagesEndRef.current && shouldAutoScroll) {
             messagesEndRef.current.scrollTo({
                 top: messagesEndRef.current.scrollHeight,
@@ -57,11 +63,11 @@ const App = () => {
         }
     }, [shouldAutoScroll]);
 
-    const handleChatSelect = useCallback(async (id) => {
+    const handleChatSelect = useCallback(async (id: string) => {
         setSelectedChatId(id);
         selectedChatIdRef.current = id;
         setMessages([]);
-        let lastMessageId = null;
+        let lastMessageId: string | null = null;
 
         try {
             const messages = await chatService.getChatMessages(id);
@@ -99,6 +105,7 @@ const App = () => {
                 }
             } catch (error) {
                 // ...existing error handling...
+                console.error('Stream error:', error);
             } finally {
                 console.log('streamChat finished:', id);
                 setStreamingMessageId(null);
@@ -106,7 +113,7 @@ const App = () => {
         })();
     }, [chatService, scrollToBottom]);
 
-    const updateMessageById = (id, newText, sender, isFinal = false) => {
+    const updateMessageById = (id: string, newText: string, sender: string, isFinal: boolean = false) => {
         setMessages(prevMessages => {
             const lastUserMessage = prevMessages.filter(m => m.sender === 'user').slice(-1)[0];
             if (isFinal && lastUserMessage && lastUserMessage.text === newText) {
@@ -132,8 +139,8 @@ const App = () => {
         });
     };
 
-    const handleScroll = useCallback((e) => {
-        const container = e.target;
+    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        const container = e.target as HTMLDivElement;
         const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
         setShouldAutoScroll(isNearBottom);
     }, []);
@@ -141,8 +148,8 @@ const App = () => {
     useEffect(() => {
         const container = messagesEndRef.current;
         if (container) {
-            container.addEventListener('scroll', handleScroll);
-            return () => container.removeEventListener('scroll', handleScroll);
+            container.addEventListener('scroll', handleScroll as unknown as EventListener);
+            return () => container.removeEventListener('scroll', handleScroll as unknown as EventListener);
         }
     }, [handleScroll]);
 
@@ -152,17 +159,17 @@ const App = () => {
         }
     }, [messages, scrollToBottom]);
 
-    const handleSubmit = useCallback(async (e) => {
+    const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         if (!prompt.trim() || !selectedChatId) return;
         if (streamingMessageId) return;
 
-        const userMessage = { id: Date.now(), sender: 'user', text: prompt };
+        const userMessage = { id: `${Date.now()}`, sender: 'user', text: prompt } as Message;
         setMessages(prevMessages => [...prevMessages, userMessage]);
 
         setMessages(prevMessages => [
             ...prevMessages,
-            { id: loadingIndicatorId, sender: 'assistant', text: 'Generating reply...', isLoading: true }
+            { id: loadingIndicatorId, sender: 'assistant', text: 'Generating reply...' }
         ]);
 
         try {
@@ -172,13 +179,13 @@ const App = () => {
             console.error('handleSubmit error:', error);
             setMessages(prev =>
                 prev.map(msg =>
-                    msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]', isLoading: false } : msg
+                    msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]' } : msg
                 )
             );
         }
     }, [prompt, selectedChatId, streamingMessageId, chatService]);
 
-    const handleNewChatSubmit = useCallback(async (e) => {
+    const handleNewChatSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newChatName.trim()) return;
 
@@ -192,7 +199,7 @@ const App = () => {
         }
     }, [newChatName, chatService, onSelectChat]);
 
-    const handleDeleteChat = async (e, chatId) => {
+    const handleDeleteChat = async (e: React.MouseEvent, chatId: string) => {
         e.stopPropagation();
         try {
             await chatService.deleteChat(chatId);
@@ -207,6 +214,7 @@ const App = () => {
     };
 
     const cancelChat = () => {
+        if (!streamingMessageId) return;
         chatService.cancelChat(streamingMessageId);
     };
 

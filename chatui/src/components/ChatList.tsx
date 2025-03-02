@@ -1,6 +1,13 @@
 import { useNavigate, useParams } from 'react-router-dom';
+import { Chat } from '../types/ChatTypes';
 
-function ChatList({ chats, selectedChat, setSelectedChat }) {
+interface ChatListProps {
+  chats: Chat[];
+  selectedChat: Chat | null;
+  setSelectedChat: (chat: Chat) => void;
+}
+
+function ChatList({ chats, selectedChat, setSelectedChat }: ChatListProps) {
     const navigate = useNavigate();
     const params = useParams();
 

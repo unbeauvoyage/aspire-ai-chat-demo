@@ -1,16 +1,29 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, ReactNode, RefObject } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { Message } from '../types/ChatTypes';
 
-const ChatContainer = ({
+interface ChatContainerProps {
+    messages: Message[];
+    prompt: string;
+    setPrompt: (prompt: string) => void;
+    handleSubmit: (e: React.FormEvent) => void;
+    cancelChat: () => void;
+    streamingMessageId: string | null;
+    messagesEndRef: RefObject<HTMLDivElement | null>;
+    shouldAutoScroll: boolean;
+    renderMessages: () => ReactNode;
+}
+
+const ChatContainer: React.FC<ChatContainerProps> = ({
     messages,
     prompt,
     setPrompt,
     handleSubmit,
     cancelChat,
     streamingMessageId,
-    messagesEndRef, // already received as a prop
-    shouldAutoScroll // new prop
-}) => {
+    messagesEndRef,
+    shouldAutoScroll
+}: ChatContainerProps) => {
     // Scroll only if near the bottom
     useEffect(() => {
         if (shouldAutoScroll && messagesEndRef.current) {
@@ -35,7 +48,7 @@ const ChatContainer = ({
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
                     placeholder="Enter your message..."
-                    disabled={streamingMessageId}
+                    disabled={streamingMessageId ? true : false}
                     className="message-input"
                 />
                 {streamingMessageId ? (
@@ -43,7 +56,7 @@ const ChatContainer = ({
                         Stop
                     </button>
                 ) : (
-                    <button type="submit" disabled={streamingMessageId} className="message-button">
+                    <button type="submit" disabled={streamingMessageId ? true : false} className="message-button">
                         Send
                     </button>
                 )}

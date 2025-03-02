@@ -1,7 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Chat } from '../types/ChatTypes';
 
-const Sidebar = ({
+interface SidebarProps {
+    chats: Chat[];
+    selectedChatId: string | null;
+    loadingChats: boolean;
+    newChatName: string;
+    setNewChatName: (name: string) => void;
+    handleNewChatSubmit: (e: React.FormEvent) => void;
+    handleDeleteChat: (e: React.MouseEvent, chatId: string) => void;
+    onSelectChat?: (id: string) => void; // Make this optional since it's not used in the implementation
+}
+
+const Sidebar: React.FC<SidebarProps> = ({
     chats,
     selectedChatId,
     loadingChats,
