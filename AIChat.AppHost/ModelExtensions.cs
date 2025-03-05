@@ -47,20 +47,37 @@ public static class ModelExtensions
         return builder;
     }
 
+    public static IResourceBuilder<AIModel> AsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Action<IResourceBuilder<AzureOpenAIResource>>? configure)
+    {
+        builder.Reset();
+
+        var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name);
+
+        configure?.Invoke(openAIModel);
+
+        builder.Resource.UnderlyingResource = openAIModel.Resource;
+        // Add the model name to the connection string
+        builder.Resource.ConnectionString = ReferenceExpression.Create($"{openAIModel.Resource.ConnectionStringExpression};Model={modelName}");
+        builder.Resource.Provider = "AzureOpenAI";
+
+        return builder;
+    }
+
+    public static IResourceBuilder<AIModel> RunAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Action<IResourceBuilder<AzureOpenAIResource>>? configure)
+    {
+        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            return builder.AsAzureOpenAI(modelName, configure);
+        }
+
+        return builder;
+    }
+
     public static IResourceBuilder<AIModel> PublishAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Action<IResourceBuilder<AzureOpenAIResource>>? configure)
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
         {
-            builder.Reset();
-
-            var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name);
-
-            configure?.Invoke(openAIModel);
-
-            builder.Resource.UnderlyingResource = openAIModel.Resource;
-            // Add the model name to the connection string
-            builder.Resource.ConnectionString = ReferenceExpression.Create($"{openAIModel.Resource.ConnectionStringExpression};Model={modelName}");
-            builder.Resource.Provider = "AzureOpenAI";
+            return builder.AsAzureOpenAI(modelName, configure);
         }
 
         return builder;
