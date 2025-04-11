@@ -20,64 +20,27 @@ public static class ModelExtensions
             var ollamaModel = ollama.AddModel(builder.Resource.Name, model);
 
             builder.Resource.UnderlyingResource = ollamaModel.Resource;
-            builder.Resource.ConnectionString = ollamaModel.Resource.ConnectionStringExpression;
-            builder.Resource.Provider = "Ollama";
+            builder.Resource.ConnectionString = ReferenceExpression.Create($"{ollamaModel};Provider=Ollama");
         }
 
         return builder;
     }
 
-    public static IResourceBuilder<AIModel> RunAsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, IResourceBuilder<ParameterResource> apiKey)
+    public static IResourceBuilder<AIModel> RunAsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Func<IDistributedApplicationBuilder, IResourceBuilder<ParameterResource>> addApiKey)
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
-            return builder.AsOpenAI(modelName, apiKey);
+            return builder.AsOpenAI(modelName, addApiKey(builder.ApplicationBuilder));
         }
 
         return builder;
     }
 
-    public static IResourceBuilder<AIModel> PublishAsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, IResourceBuilder<ParameterResource> apiKey)
+    public static IResourceBuilder<AIModel> PublishAsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Func<IDistributedApplicationBuilder, IResourceBuilder<ParameterResource>> addApiKey)
     {
         if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
         {
-            return builder.AsOpenAI(modelName, apiKey);
-        }
-
-        return builder;
-    }
-
-    public static IResourceBuilder<AIModel> AsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Action<IResourceBuilder<AzureOpenAIResource>>? configure)
-    {
-        builder.Reset();
-
-        var openAIModel = builder.ApplicationBuilder.AddAzureOpenAI(builder.Resource.Name);
-
-        configure?.Invoke(openAIModel);
-
-        builder.Resource.UnderlyingResource = openAIModel.Resource;
-        // Add the model name to the connection string
-        builder.Resource.ConnectionString = ReferenceExpression.Create($"{openAIModel.Resource.ConnectionStringExpression};Model={modelName}");
-        builder.Resource.Provider = "AzureOpenAI";
-
-        return builder;
-    }
-
-    public static IResourceBuilder<AIModel> RunAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Action<IResourceBuilder<AzureOpenAIResource>>? configure)
-    {
-        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
-        {
-            return builder.AsAzureOpenAI(modelName, configure);
-        }
-
-        return builder;
-    }
-
-    public static IResourceBuilder<AIModel> PublishAsAzureOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Action<IResourceBuilder<AzureOpenAIResource>>? configure)
-    {
-        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
-        {
-            return builder.AsAzureOpenAI(modelName, configure);
+            return builder.AsOpenAI(modelName, addApiKey(builder.ApplicationBuilder));
         }
 
         return builder;
@@ -107,67 +70,38 @@ public static class ModelExtensions
     {
         builder.Reset();
 
-        // See: https://github.com/dotnet/aspire/issues/7641
-        var csb = new ReferenceExpressionBuilder();
-        csb.Append($"Endpoint={endpoint};");
-        csb.Append($"AccessKey={apiKey.Resource};");
-        csb.Append($"Model={modelName}");
-        var cs = csb.Build();
-
-        builder.ApplicationBuilder.AddResource(builder.Resource);
-
-        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        var cs = builder.ApplicationBuilder.AddConnectionString(builder.Resource.Name, csb =>
         {
-            var csTask = cs.GetValueAsync(default).AsTask();
-            if (!csTask.IsCompletedSuccessfully) throw new InvalidOperationException("Connection string could not be resolved!");
+            csb.Append($"Endpoint={endpoint};");
+            csb.Append($"AccessKey={apiKey};");
+            csb.Append($"Model={modelName};");
+            csb.AppendLiteral("Provider=AzureAIInference");
+        });
 
-            builder.WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "Azure AI Inference Model",
-                State = KnownResourceStates.Running,
-                Properties = [
-                  new("ConnectionString", csTask.Result ) { IsSensitive = true }
-                ]
-            });
-        }
-
-        builder.Resource.UnderlyingResource = builder.Resource;
-        builder.Resource.ConnectionString = cs;
-        builder.Resource.Provider = "AzureAIInference";
+        builder.Resource.UnderlyingResource = cs.Resource;
+        builder.Resource.ConnectionString = cs.Resource.ConnectionStringExpression;
 
         return builder;
+    }
+
+    public static IResourceBuilder<AIModel> AsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Func<IDistributedApplicationBuilder, IResourceBuilder<ParameterResource>> addApiKey)
+    {
+        return builder.AsOpenAI(modelName, addApiKey(builder.ApplicationBuilder));
     }
 
     public static IResourceBuilder<AIModel> AsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, IResourceBuilder<ParameterResource> apiKey)
     {
         builder.Reset();
 
-        // See: https://github.com/dotnet/aspire/issues/7641
-        var csb = new ReferenceExpressionBuilder();
-        csb.Append($"AccessKey={apiKey.Resource};");
-        csb.Append($"Model={modelName}");
-        var cs = csb.Build();
-
-        builder.ApplicationBuilder.AddResource(builder.Resource);
-
-        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        var cs = builder.ApplicationBuilder.AddConnectionString(builder.Resource.Name, csb =>
         {
-            var csTask = cs.GetValueAsync(default).AsTask();
-            if (!csTask.IsCompletedSuccessfully) throw new InvalidOperationException("Connection string could not be resolved!");
+            csb.Append($"AccessKey={apiKey};");
+            csb.Append($"Model={modelName};");
+            csb.AppendLiteral("Provider=OpenAI");
+        });
 
-            builder.WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "OpenAI Model",
-                State = KnownResourceStates.Running,
-                Properties = [
-                  new("ConnectionString", csTask.Result ) { IsSensitive = true }
-                ]
-            });
-        }
-
-        builder.Resource.UnderlyingResource = builder.Resource;
-        builder.Resource.ConnectionString = cs;
-        builder.Resource.Provider = "OpenAI";
+        builder.Resource.UnderlyingResource = cs.Resource;
+        builder.Resource.ConnectionString = cs.Resource.ConnectionStringExpression;
 
         return builder;
     }
@@ -186,30 +120,16 @@ public static class ModelExtensions
         }
 
         builder.Resource.ConnectionString = null;
-        builder.Resource.Provider = null;
     }
 }
 
 // A resource representing an AI model.
-public class AIModel(string name) : Resource(name), IResourceWithConnectionString
+public class AIModel(string name) : Resource(name), IResourceWithConnectionString, IResourceWithoutLifetime
 {
-    internal string? Provider { get; set; }
     internal IResourceWithConnectionString? UnderlyingResource { get; set; }
     internal ReferenceExpression? ConnectionString { get; set; }
 
     public ReferenceExpression ConnectionStringExpression =>
-        Build();
-
-    public ReferenceExpression Build()
-    {
-        var connectionString = ConnectionString ?? throw new InvalidOperationException("No connection string available.");
-
-        if (Provider is null)
-        {
-            throw new InvalidOperationException("No provider configured.");
-        }
-
-        return ReferenceExpression.Create($"{connectionString};Provider={Provider}");
-    }
+        ConnectionString ?? throw new InvalidOperationException("No connection string available.");
 }
 
