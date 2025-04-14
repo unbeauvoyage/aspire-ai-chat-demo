@@ -46,44 +46,6 @@ public static class ModelExtensions
         return builder;
     }
 
-    public static IResourceBuilder<AIModel> RunAsAzureAIInference(this IResourceBuilder<AIModel> builder, string modelName, string endpoint, IResourceBuilder<ParameterResource> apiKey)
-    {
-        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
-        {
-            return builder.AsAzureAIInference(modelName, endpoint, apiKey);
-        }
-
-        return builder;
-    }
-
-    public static IResourceBuilder<AIModel> PublishAsAzureAIInference(this IResourceBuilder<AIModel> builder, string modelName, string endpoint, IResourceBuilder<ParameterResource> apiKey)
-    {
-        if (builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
-        {
-            return builder.AsAzureAIInference(modelName, endpoint, apiKey);
-        }
-
-        return builder;
-    }
-
-    public static IResourceBuilder<AIModel> AsAzureAIInference(this IResourceBuilder<AIModel> builder, string modelName, string endpoint, IResourceBuilder<ParameterResource> apiKey)
-    {
-        builder.Reset();
-
-        var cs = builder.ApplicationBuilder.AddConnectionString(builder.Resource.Name, csb =>
-        {
-            csb.Append($"Endpoint={endpoint};");
-            csb.Append($"AccessKey={apiKey};");
-            csb.Append($"Model={modelName};");
-            csb.AppendLiteral("Provider=AzureAIInference");
-        });
-
-        builder.Resource.UnderlyingResource = cs.Resource;
-        builder.Resource.ConnectionString = cs.Resource.ConnectionStringExpression;
-
-        return builder;
-    }
-
     public static IResourceBuilder<AIModel> AsOpenAI(this IResourceBuilder<AIModel> builder, string modelName, Func<IDistributedApplicationBuilder, IResourceBuilder<ParameterResource>> addApiKey)
     {
         return builder.AsOpenAI(modelName, addApiKey(builder.ApplicationBuilder));
