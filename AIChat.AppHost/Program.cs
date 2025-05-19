@@ -1,7 +1,13 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Allows aspire publish -p docker-compose to work
-builder.AddDockerComposePublisher();
+// Publish this as a Docker Compose application
+builder.AddDockerComposeEnvironment("env")
+       .ConfigureComposeFile(file =>
+       {
+           file.Name = "aspire-ai-chat";
+       });
+
+builder.AddDashboard();
 
 // This is the AI model our application will use
 var model = builder.AddAIModel("llm")
@@ -40,7 +46,8 @@ builder.AddNpmApp("chatui", "../chatui")
        .WithHttpEndpoint(env: "PORT")
        .WithReverseProxy(chatapi.GetEndpoint("http"))
        .WithExternalHttpEndpoints()
-       .WithOtlpExporter();
+       .WithOtlpExporter()
+       .WithEnvironment("BROWSER", "none");
 
 builder.Build().Run();
 

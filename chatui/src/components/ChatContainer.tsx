@@ -1,6 +1,7 @@
 import React, { useEffect, ReactNode, RefObject } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Message } from '../types/ChatTypes';
+import LandingPage from './LandingPage';
 
 interface ChatContainerProps {
     messages: Message[];
@@ -12,6 +13,7 @@ interface ChatContainerProps {
     messagesEndRef: RefObject<HTMLDivElement | null>;
     shouldAutoScroll: boolean;
     renderMessages: () => ReactNode;
+    onExampleClick?: (text: string) => void;
 }
 
 const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -22,7 +24,9 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     cancelChat,
     streamingMessageId,
     messagesEndRef,
-    shouldAutoScroll
+    shouldAutoScroll,
+    renderMessages,
+    onExampleClick
 }: ChatContainerProps) => {
     // Scroll only if near the bottom
     useEffect(() => {
@@ -34,6 +38,12 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     return (
         <div className="chat-container">
             <div ref={messagesEndRef} className="messages-container">
+                {messages.length === 0 && (
+                    <LandingPage onExampleClick={text => {
+                        setPrompt(text);
+                        handleSubmit(new Event('submit') as any);
+                    }} />
+                )}
                 {messages.map(msg => (
                     <div key={msg.id} className={`message ${msg.sender}`}>
                         <div className="message-content">
@@ -42,25 +52,27 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
                     </div>
                 ))}
             </div>
-            <form onSubmit={handleSubmit} className="message-form">
-                <input
-                    type="text"
-                    value={prompt}
-                    onChange={e => setPrompt(e.target.value)}
-                    placeholder="Enter your message..."
-                    disabled={streamingMessageId ? true : false}
-                    className="message-input"
-                />
-                {streamingMessageId ? (
-                    <button type="button" onClick={cancelChat} className="message-button">
-                        Stop
-                    </button>
-                ) : (
-                    <button type="submit" disabled={streamingMessageId ? true : false} className="message-button">
-                        Send
-                    </button>
-                )}
-            </form>
+            <div className="message-form">
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type="text"
+                        value={prompt}
+                        onChange={e => setPrompt(e.target.value)}
+                        placeholder="Send a message..."
+                        disabled={streamingMessageId ? true : false}
+                        className="message-input"
+                    />
+                    {streamingMessageId ? (
+                        <button type="button" onClick={cancelChat} className="message-button">
+                            Stop
+                        </button>
+                    ) : (
+                        <button type="submit" disabled={streamingMessageId ? true : false} className="message-button">
+                            Send
+                        </button>
+                    )}
+                </form>
+            </div>
         </div>
     );
 };

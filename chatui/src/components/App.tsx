@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import ChatContainer from './ChatContainer';
 import VirtualizedChatList from './VirtualizedChatList';
 import './App.css';
+import { nanoid } from 'nanoid';          // lightweight id helper (already in many React projects; falls back to simple Date.now() if not installed)
 
 const loadingIndicatorId = 'loading-indicator';
 
@@ -63,38 +64,45 @@ const App: React.FC = () => {
         }
     }, [shouldAutoScroll]);
 
-    const handleChatSelect = useCallback(async (id: string) => {
+    const handleChatSelect = useCallback((id: string) => {
         setSelectedChatId(id);
         selectedChatIdRef.current = id;
-        setMessages([]);
-        let lastMessageId: string | null = null;
+        // message fetching and streaming now handled in useEffect below
+    }, []);
 
-        try {
-            const messages = await chatService.getChatMessages(id);
-            const filteredMessages = messages.filter(msg => msg.text);
-            lastMessageId = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1].id : null;
-            setMessages(messages);
-            setTimeout(() => scrollToBottom('instant'), 100);
-        } catch (error) {
-            console.error('Error fetching chat messages:', error);
-        }
+    // Fetch messages and start streaming when selectedChatId changes
+    useEffect(() => {
+        if (!selectedChatId) return;
 
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-        const abortController = new AbortController();
-        abortControllerRef.current = abortController;
+        let isActive = true;
+        let abortController: AbortController | null = null;
 
-        let chatId = id;
-
-        (async () => {
+        const fetchAndStream = async () => {
+            setLoadingChats(true);
+            // 1. Fetch messages
+            let lastMessageId: string | null = null;
             try {
-                console.log('streamChat started:', id);
-                const stream = chatService.stream(id, lastMessageId, abortController);
+                const chatMessages = await chatService.getChatMessages(selectedChatId);
+                setMessages(chatMessages);
+                const filteredMessages = chatMessages.filter(msg => msg.text);
+                lastMessageId = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1].id : null;
+            } catch (error) {
+                console.error('Error fetching chat messages:', error);
+            } finally {
+                setLoadingChats(false);
+            }
+
+            // 2. Start streaming
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            abortController = new AbortController();
+            abortControllerRef.current = abortController;
+
+            try {
+                const stream = chatService.stream(selectedChatId, lastMessageId, abortController);
                 for await (const { id, sender, text, isFinal } of stream) {
-                    if (selectedChatIdRef.current !== chatId) {
-                        break;
-                    }
+                    if (!isActive || selectedChatIdRef.current !== selectedChatId) break;
                     if (isFinal) {
                         setStreamingMessageId(null);
                         if (!text) continue;
@@ -104,14 +112,24 @@ const App: React.FC = () => {
                     updateMessageById(id, text, sender, isFinal);
                 }
             } catch (error) {
-                // ...existing error handling...
                 console.error('Stream error:', error);
             } finally {
-                console.log('streamChat finished:', id);
                 setStreamingMessageId(null);
             }
-        })();
-    }, [chatService, scrollToBottom]);
+        };
+
+        fetchAndStream();
+
+        return () => {
+            isActive = false;
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
+        };
+        // Only restart when selectedChatId changes
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChatId]);
 
     const updateMessageById = (id: string, newText: string, sender: string, isFinal: boolean = false) => {
         const generatingReplyMessageText = 'Generating reply...';
@@ -176,31 +194,65 @@ const App: React.FC = () => {
         }
     }, [messages, scrollToBottom]);
 
+    const handleNewChat = useCallback(() => {
+        // Cancel any ongoing stream
+        if (streamingMessageId) {
+            chatService.cancelChat(streamingMessageId);
+            setStreamingMessageId(null);
+        }
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setSelectedChatId(null);
+        setMessages([]);
+        setPrompt('');
+        selectedChatIdRef.current = null;
+        navigate('/');
+    }, [navigate, chatService, streamingMessageId]);
+
+    const generateChatTitle = (text: string): string => {
+        // Take first 40 chars of first line, or "New Chat" if empty
+        const firstLine = text.split('\n')[0].trim();
+        return firstLine.length > 40 ? firstLine.substring(0, 37) + '...' : firstLine || 'New Chat';
+    };
+
     const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!prompt.trim() || !selectedChatId) return;
-        if (streamingMessageId) return;
+        if (!prompt.trim() || streamingMessageId) return;
 
-        const userMessage = { id: `${Date.now()}`, sender: 'user', text: prompt } as Message;
-        setMessages(prevMessages => [...prevMessages, userMessage]);
+        const userMessage = { id: nanoid(), sender: 'user', text: prompt } as Message;
+        setMessages(prev => [...prev, userMessage]);
 
-        setMessages(prevMessages => [
-            ...prevMessages,
+        setMessages(prev => [
+            ...prev,
             { id: loadingIndicatorId, sender: 'assistant', text: 'Generating reply...' }
         ]);
 
         try {
-            chatService.sendPrompt(selectedChatId, prompt);
+            let activeChatId = selectedChatId;
+            if (!activeChatId) {
+                const title = generateChatTitle(prompt);
+                const newChat = await chatService.createChat(title);
+                setChats(prev => [...prev, newChat]);
+                activeChatId = newChat.id;
+                setSelectedChatId(activeChatId);
+                navigate(`/chat/${activeChatId}`);
+            }
+
+            await chatService.sendPrompt(activeChatId!, prompt);
             setPrompt('');
         } catch (error) {
             console.error('handleSubmit error:', error);
             setMessages(prev =>
                 prev.map(msg =>
-                    msg.id === loadingIndicatorId ? { ...msg, text: '[Error in receiving response]' } : msg
+                    msg.id === loadingIndicatorId
+                        ? { ...msg, text: '[Error in receiving response]' }
+                        : msg
                 )
             );
         }
-    }, [prompt, selectedChatId, streamingMessageId, chatService]);
+    }, [prompt, selectedChatId, streamingMessageId, chatService, navigate]);
 
     const handleNewChatSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
@@ -241,11 +293,8 @@ const App: React.FC = () => {
                 chats={chats}
                 selectedChatId={selectedChatId}
                 loadingChats={loadingChats}
-                newChatName={newChatName}
-                setNewChatName={setNewChatName}
-                handleNewChatSubmit={handleNewChatSubmit}
                 handleDeleteChat={handleDeleteChat}
-                onSelectChat={onSelectChat}
+                onNewChat={handleNewChat}
             />
             <ChatContainer
                 messages={messages}
