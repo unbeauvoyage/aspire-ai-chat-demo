@@ -47,11 +47,25 @@ var chatapi = builder.AddProject<Projects.ChatApi>("chatapi")
                      .WithReference(cache)
                      .WaitFor(cache);
 
+// --- YOUR CUSTOM API ---
+var myapi = builder.AddProject<Projects.MyApi>("myapi")
+                   .WithExternalHttpEndpoints();
+
 builder.AddNpmApp("chatui", "../chatui")
        .WithNpmPackageInstallation()
        .WithHttpEndpoint(env: "PORT")
        .WithReverseProxy(chatapi.GetEndpoint("http"))
        .WithExternalHttpEndpoints()
+       .WithOtlpExporter()
+       .WithEnvironment("BROWSER", "none");
+
+// --- YOUR CUSTOM NEXT.JS APP ---
+builder.AddNpmApp("nextapp", "../nextapp")
+       .WithNpmPackageInstallation()
+       .WithHttpEndpoint(env: "PORT")
+       .WithExternalHttpEndpoints()
+       .WithEnvironment("NEXT_PUBLIC_API_BASE", myapi.GetEndpoint("http"))
+       .WithReference(myapi)
        .WithOtlpExporter()
        .WithEnvironment("BROWSER", "none");
 

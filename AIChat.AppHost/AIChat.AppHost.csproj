@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ChatApi\ChatApi.csproj" />
+    <ProjectReference Include="..\MyApi\MyApi.csproj" />
   </ItemGroup>
 
 </Project>

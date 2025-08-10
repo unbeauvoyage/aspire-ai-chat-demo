@@ -7,4 +7,5 @@
   <Project Path="AIChat.AppHost/AIChat.AppHost.csproj" />
   <Project Path="AIChat.ServiceDefaults/AIChat.ServiceDefaults.csproj" />
   <Project Path="ChatApi/ChatApi.csproj" />
+  <Project Path="MyApi/MyApi.csproj" />
 </Solution>
