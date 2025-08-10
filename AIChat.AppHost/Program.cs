@@ -28,11 +28,12 @@ else
     .PublishAsOpenAI("gpt-4.1");
 }
 
-// We use Postgres for our conversation history
-var db = builder.AddPostgres("pg")
+// Postgres server (multiple logical databases: conversations + weather)
+var pg = builder.AddPostgres("pg")
                 .WithDataVolume(builder.ExecutionContext.IsPublishMode ? "pgvolume" : null)
-                .WithPgAdmin()
-                .AddDatabase("conversations");
+                .WithPgAdmin();
+var conversationsDb = pg.AddDatabase("conversations");
+var weatherDb = pg.AddDatabase("weather");
 
 // Redis is used to store and broadcast the live message stream
 // so that multiple clients can connect to the same conversation.
@@ -42,13 +43,17 @@ var cache = builder.AddRedis("cache")
 var chatapi = builder.AddProject<Projects.ChatApi>("chatapi")
                      .WithReference(model)
                      .WaitFor(model)
-                     .WithReference(db)
-                     .WaitFor(db)
+                     .WithReference(conversationsDb)
+                     .WaitFor(conversationsDb)
                      .WithReference(cache)
                      .WaitFor(cache);
 
 // --- YOUR CUSTOM API ---
 var myapi = builder.AddProject<Projects.MyApi>("myapi")
+                   .WithReference(model)
+                   .WaitFor(model)
+                   .WithReference(weatherDb)
+                   .WaitFor(weatherDb)
                    .WithExternalHttpEndpoints();
 
 builder.AddNpmApp("chatui", "../chatui")

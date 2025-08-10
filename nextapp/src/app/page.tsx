@@ -1,16 +1,13 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { Configuration, WeatherHandlersApi } from "../data/apiClient/openapi";
+import { WeatherForecastDto } from "../data/apiClient/openapi/models";
 
-interface WeatherForecast {
-  date: string;
-  temperatureC: number;
-  temperatureF: number;
-  summary?: string;
-}
+// Using generated OpenAPI model type
 
 export default function Home() {
-  const [weather, setWeather] = useState<WeatherForecast[]>([]);
+  const [weather, setWeather] = useState<WeatherForecastDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,11 +15,14 @@ export default function Home() {
     const fetchWeather = async () => {
       try {
         const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5100';
-        const response = await fetch(`${apiBase}/weatherforecast`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
+        
+        // Configure the API client with the correct base path
+        const configuration = new Configuration({
+          basePath: apiBase,
+        });
+        
+        const weatherForecastApiClient = new WeatherHandlersApi(configuration);
+        const data = await weatherForecastApiClient.getWeatherForecast();
         setWeather(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch weather');

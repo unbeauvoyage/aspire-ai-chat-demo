@@ -1,10 +1,75 @@
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.DependencyInjection;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+// Register EF Core DbContext using the dedicated 'weather' database, if configured
+var weatherConnectionString = builder.Configuration.GetConnectionString("weather");
+var hasWeatherConnection = !string.IsNullOrWhiteSpace(weatherConnectionString);
+if (hasWeatherConnection)
+{
+    builder.AddNpgsqlDbContext<MyApi.AppDbContext>("weather");
+}
+
+// Configure Semantic Kernel (reuse llm connection string provided by model reference)
+var llmCs = builder.Configuration.GetConnectionString("llm");
+if (!string.IsNullOrWhiteSpace(llmCs))
+{
+    var parts = llmCs.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                     .Select(p => p.Split('=', 2, StringSplitOptions.TrimEntries))
+                     .Where(p => p.Length == 2)
+                     .ToDictionary(p => p[0].ToLowerInvariant(), p => p[1], StringComparer.OrdinalIgnoreCase);
+    parts.TryGetValue("accesskey", out var apiKey);
+    parts.TryGetValue("model", out var modelId);
+    parts.TryGetValue("endpoint", out var endpoint);
+    parts.TryGetValue("provider", out var provider);
+
+    try
+    {
+        if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(modelId))
+        {
+            var kb = Kernel.CreateBuilder();
+            if ((provider ?? "").Equals("openai", StringComparison.OrdinalIgnoreCase))
+            {
+                kb.AddOpenAIChatCompletion(modelId!, apiKey!);
+            }
+            // (Could add other providers here)
+            var kernel = kb.Build();
+            builder.Services.AddSingleton(kernel);
+            builder.Services.AddSingleton<MyApi.WeatherAnalysisService>();
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Failed to configure Semantic Kernel: {ex.Message}");
+    }
+}
+
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+
+// Configure JSON options for proper serialization
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.WriteIndented = true;
+    // Add converters for DateOnly
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
+if (hasWeatherConnection)
+{
+    builder.Services.AddHostedService<MyApi.EnsureWeatherDatabaseCreatedHostedService>();
+}
+
+// Register the weather mapper
+builder.Services.AddScoped<MyApi.IWeatherMapper, MyApi.WeatherMapper>();
 
 // Add CORS for development
 builder.Services.AddCors(options =>
@@ -30,30 +95,80 @@ if (app.Environment.IsDevelopment())
 // Enable CORS
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+// Disable HTTPS redirection in dev if no HTTPS port is configured
+// app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.MapGet("/weatherforecast", WeatherHandlers.GetWeatherForecast)
+    .WithName("GetWeatherForecast")
+    .WithSummary("Get weather forecast")
+    .WithDescription("Get weather forecast data for the next 5 days.")
+    .Produces<MyApi.WeatherForecastDto[]>(StatusCodes.Status200OK)
+    .WithOpenApi();
 
-app.MapGet("/weatherforecast", () =>
+// Analyze endpoint: accepts forecasts (domain or DTO) and returns LLM analysis
+app.MapPost("/weatherforecast/analyze", async (
+    MyApi.WeatherAnalysisService analysis,
+    IEnumerable<MyApi.WeatherForecastDto> body,
+    CancellationToken ct) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    var list = body.ToList();
+    if (list.Count == 0)
+        return Results.BadRequest("No forecasts supplied");
+
+    var analysisText = await analysis.AnalyzeAsync(list, ct);
+    return Results.Ok(new { analysis = analysisText });
+}).WithName("AnalyzeWeather");
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+// WeatherForecast entity is now in a separate file and tracked by EF Core (see WeatherForecast.cs)
+
+public static class WeatherHandlers
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    public static Results<Ok<MyApi.WeatherForecastDto[]>, ProblemHttpResult> GetWeatherForecast(
+        MyApi.AppDbContext db,
+        HttpContext http,
+        ILoggerFactory loggerFactory,
+        MyApi.IWeatherMapper mapper,
+        IServiceScopeFactory scopeFactory)
+    {
+        try
+        {
+            var logger = loggerFactory.CreateLogger("WeatherEndpoint");
+            var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
+
+            // Generate 5 new forecasts (not yet persisted)
+            var generated = Enumerable.Range(1, 5).Select(index => new MyApi.WeatherForecast
+            {
+                Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+                TemperatureC = Random.Shared.Next(-20, 55),
+                Summary = summaries[Random.Shared.Next(summaries.Length)]
+            }).ToList();
+
+            // Schedule persistence AFTER response using a NEW scoped DbContext
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = scopeFactory.CreateScope();
+                    var scopedDb = scope.ServiceProvider.GetRequiredService<MyApi.AppDbContext>();
+                    await scopedDb.WeatherForecasts.AddRangeAsync(generated);
+                    var saved = await scopedDb.SaveChangesAsync();
+                    logger.LogInformation("Persisted {Count} weather forecasts post-response", saved);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to persist weather forecasts");
+                }
+            });
+
+            // Return DTOs (omit Id since not yet saved)
+            var dto = generated.Select(mapper.ToDto).ToArray();
+            return TypedResults.Ok(dto);
+        }
+        catch (Exception)
+        {
+            return TypedResults.Problem("An error occurred while processing your request.");
+        }
+    }
 }

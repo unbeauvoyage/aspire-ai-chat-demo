@@ -8,6 +8,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+  <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.4.0" />
+  <PackageReference Include="Microsoft.SemanticKernel" Version="1.61.0" />
+  <PackageReference Include="Riok.Mapperly" Version="4.2.1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,7 @@
+apis/MyApiApi.ts
+apis/WeatherHandlersApi.ts
+apis/index.ts
+index.ts
+models/WeatherForecastDto.ts
+models/index.ts
+runtime.ts
