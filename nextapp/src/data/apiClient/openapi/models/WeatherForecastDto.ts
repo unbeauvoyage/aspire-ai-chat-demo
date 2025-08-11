@@ -43,6 +43,12 @@ export interface WeatherForecastDto {
      * @memberof WeatherForecastDto
      */
     summary: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof WeatherForecastDto
+     */
+    iconD?: string | null;
 }
 
 /**
@@ -70,6 +76,7 @@ export function WeatherForecastDtoFromJSONTyped(json: any, ignoreDiscriminator: 
         'temperatureC': json['temperatureC'],
         'temperatureF': json['temperatureF'],
         'summary': json['summary'],
+        'iconD': json['iconD'] == null ? undefined : json['iconD'],
     };
 }
 
@@ -88,6 +95,7 @@ export function WeatherForecastDtoToJSONTyped(value?: WeatherForecastDto | null,
         'temperatureC': value['temperatureC'],
         'temperatureF': value['temperatureF'],
         'summary': value['summary'],
+        'iconD': value['iconD'],
     };
 }
 

@@ -54,8 +54,6 @@ var myapi = builder.AddProject<Projects.MyApi>("myapi")
                    .WaitFor(model)
                    .WithReference(weatherDb)
                    .WaitFor(weatherDb)
-                //    .WithHttpsEndpoint(port: 5100, name: "https")
-                //    .WithEndpoint("https", e => e.Port = 5100)
                    .WithExternalHttpEndpoints();
 
 builder.AddNpmApp("chatui", "../chatui")
@@ -76,14 +74,4 @@ builder.AddNpmApp("nextapp", "../nextapp")
        .WithOtlpExporter()
        .WithEnvironment("BROWSER", "none");
 
-// builder.AddNpmApp("nextapp", "../nextapp")
-//        .WithNpmPackageInstallation()
-//        .WithHttpEndpoint(env: "PORT")
-//        .WithExternalHttpEndpoints()
-//        .WithEnvironment("NEXT_PUBLIC_API_BASE", myapi.GetEndpoint("http"))
-//        .WithReference(myapi)
-//        .WithOtlpExporter()
-//        .WithEnvironment("BROWSER", "none");
-
 builder.Build().Run();
-

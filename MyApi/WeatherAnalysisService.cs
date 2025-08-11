@@ -1,5 +1,6 @@
 using Microsoft.SemanticKernel;
 using System.Text;
+using MyApi.DTOs;
 
 namespace MyApi;
 

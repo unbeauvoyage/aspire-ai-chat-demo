@@ -4,10 +4,14 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)/openapi</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--document-name v1 --file-name v1 --openapi-version OpenApi3_1</OpenApiGenerateDocumentsOptions>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="9.0.0" />
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.4.0" />
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.61.0" />
     <PackageReference Include="Riok.Mapperly" Version="4.2.1" />
@@ -16,5 +20,15 @@
   <ItemGroup>
     <ProjectReference Include="..\AIChat.ServiceDefaults\AIChat.ServiceDefaults.csproj" />
   </ItemGroup>
+
+  <!-- Generate TypeScript clients when OpenAPI spec changes -->
+  <Target Name="OpenApiToTs" 
+          AfterTargets="Build"
+          Inputs="$(MSBuildProjectDirectory)/openapi/v1.json"
+          Outputs="$(MSBuildProjectDirectory)/../nextapp/src/data/apiClient/openapi/.openapi-marker">
+    <Message Text="OpenAPI spec changed. Regenerating TypeScript clients..." Importance="high" />
+    <Exec Command="cd $(MSBuildProjectDirectory)/../nextapp &amp;&amp; npm run generate-api-from-file" />
+    <Touch Files="$(MSBuildProjectDirectory)/../nextapp/src/data/apiClient/openapi/.openapi-marker" AlwaysCreate="true" />
+  </Target>
 
 </Project>

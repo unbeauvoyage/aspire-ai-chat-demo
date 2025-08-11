@@ -4,50 +4,59 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc;
+using MyApi.DTOs;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-// Register EF Core DbContext using the dedicated 'weather' database, if configured
-var weatherConnectionString = builder.Configuration.GetConnectionString("weather");
-var hasWeatherConnection = !string.IsNullOrWhiteSpace(weatherConnectionString);
-if (hasWeatherConnection)
-{
-    builder.AddNpgsqlDbContext<MyApi.AppDbContext>("weather");
-}
+// Only wire up heavy services when not invoked by the build-time doc generator
+var isOpenApiGeneration = Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
 
-// Configure Semantic Kernel (reuse llm connection string provided by model reference)
-var llmCs = builder.Configuration.GetConnectionString("llm");
-if (!string.IsNullOrWhiteSpace(llmCs))
+if (!isOpenApiGeneration)
 {
-    var parts = llmCs.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                     .Select(p => p.Split('=', 2, StringSplitOptions.TrimEntries))
-                     .Where(p => p.Length == 2)
-                     .ToDictionary(p => p[0].ToLowerInvariant(), p => p[1], StringComparer.OrdinalIgnoreCase);
-    parts.TryGetValue("accesskey", out var apiKey);
-    parts.TryGetValue("model", out var modelId);
-    parts.TryGetValue("endpoint", out var endpoint);
-    parts.TryGetValue("provider", out var provider);
-
-    try
+    // Register EF Core DbContext using the dedicated 'weather' database, if configured
+    var weatherConnectionString = builder.Configuration.GetConnectionString("weather");
+    var hasWeatherConnection = !string.IsNullOrWhiteSpace(weatherConnectionString);
+    if (hasWeatherConnection)
     {
-        if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(modelId))
-        {
-            var kb = Kernel.CreateBuilder();
-            if ((provider ?? "").Equals("openai", StringComparison.OrdinalIgnoreCase))
-            {
-                kb.AddOpenAIChatCompletion(modelId!, apiKey!);
-            }
-            // (Could add other providers here)
-            var kernel = kb.Build();
-            builder.Services.AddSingleton(kernel);
-            builder.Services.AddSingleton<MyApi.WeatherAnalysisService>();
-        }
+        builder.AddNpgsqlDbContext<MyApi.AppDbContext>("weather");
     }
-    catch (Exception ex)
+
+    // Configure Semantic Kernel (reuse llm connection string provided by model reference)
+    var llmCs = builder.Configuration.GetConnectionString("llm");
+    if (!string.IsNullOrWhiteSpace(llmCs))
     {
-        Console.WriteLine($"Failed to configure Semantic Kernel: {ex.Message}");
+        var parts = llmCs.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                         .Select(p => p.Split('=', 2, StringSplitOptions.TrimEntries))
+                         .Where(p => p.Length == 2)
+                         .ToDictionary(p => p[0].ToLowerInvariant(), p => p[1], StringComparer.OrdinalIgnoreCase);
+        parts.TryGetValue("accesskey", out var apiKey);
+        parts.TryGetValue("model", out var modelId);
+        parts.TryGetValue("endpoint", out var endpoint);
+        parts.TryGetValue("provider", out var provider);
+
+        try
+        {
+            if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(modelId))
+            {
+                var kb = Kernel.CreateBuilder();
+                if ((provider ?? "").Equals("openai", StringComparison.OrdinalIgnoreCase))
+                {
+                    kb.AddOpenAIChatCompletion(modelId!, apiKey!);
+                }
+                // (Could add other providers here)
+                var kernel = kb.Build();
+                builder.Services.AddSingleton(kernel);
+                builder.Services.AddSingleton<MyApi.WeatherAnalysisService>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to configure Semantic Kernel: {ex.Message}");
+        }
     }
 }
 
@@ -64,9 +73,13 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     // Add converters for DateOnly
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
-if (hasWeatherConnection)
+
+if (!isOpenApiGeneration)
 {
-    builder.Services.AddHostedService<MyApi.EnsureWeatherDatabaseCreatedHostedService>();
+    if (builder.Configuration.GetConnectionString("weather") != null)
+    {
+        builder.Services.AddHostedService<MyApi.EnsureWeatherDatabaseCreatedHostedService>();
+    }
 }
 
 // Register the weather mapper
@@ -96,20 +109,17 @@ if (app.Environment.IsDevelopment())
 // Enable CORS
 app.UseCors("AllowAll");
 
-// Disable HTTPS redirection in dev if no HTTPS port is configured
-// app.UseHttpsRedirection();
-
 app.MapGet("/weatherforecast", WeatherHandlers.GetWeatherForecast)
     .WithName("GetWeatherForecast")
     .WithSummary("Get weather forecast")
     .WithDescription("Get weather forecast data for the next 5 days.")
-    .Produces<MyApi.WeatherForecastDto[]>(StatusCodes.Status200OK)
+    .Produces<WeatherForecastDto[]>(StatusCodes.Status200OK)
     .WithOpenApi();
 
 // Analyze endpoint: accepts forecasts (domain or DTO) and returns LLM analysis
 app.MapPost("/weatherforecast/analyze", async (
-    MyApi.WeatherAnalysisService analysis,
-    IEnumerable<MyApi.WeatherForecastDto> body,
+    [FromServices] MyApi.WeatherAnalysisService analysis,
+    [FromBody] IEnumerable<WeatherForecastDto> body,
     CancellationToken ct) =>
 {
     var list = body.ToList();
@@ -121,7 +131,7 @@ app.MapPost("/weatherforecast/analyze", async (
 }).WithName("AnalyzeWeather");
 
 // New: Get latest weather analysis
-app.MapGet("/weatheranalysis/latest", async (MyApi.AppDbContext db, MyApi.IWeatherMapper mapper) =>
+app.MapGet("/weatheranalysis/latest", async ([FromServices] MyApi.AppDbContext db, [FromServices] MyApi.IWeatherMapper mapper) =>
 {
     var latest = await db.WeatherAnalyses
         .OrderByDescending(a => a.CreatedAt)
@@ -131,7 +141,7 @@ app.MapGet("/weatheranalysis/latest", async (MyApi.AppDbContext db, MyApi.IWeath
 })
 .WithName("GetLatestWeatherAnalysis")
 .WithSummary("Get latest weather analysis")
-.Produces<MyApi.WeatherAnalysisDto>(StatusCodes.Status200OK)
+.Produces<WeatherAnalysisDto>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound)
 .WithOpenApi();
 
@@ -141,12 +151,12 @@ app.Run();
 
 public static class WeatherHandlers
 {
-    public static Results<Ok<MyApi.WeatherForecastDto[]>, ProblemHttpResult> GetWeatherForecast(
-        MyApi.AppDbContext db,
+    public static Results<Ok<WeatherForecastDto[]>, ProblemHttpResult> GetWeatherForecast(
+        [FromServices] MyApi.AppDbContext db,
         HttpContext http,
-        ILoggerFactory loggerFactory,
-        MyApi.IWeatherMapper mapper,
-        IServiceScopeFactory scopeFactory)
+        [FromServices] ILoggerFactory loggerFactory,
+        [FromServices] MyApi.IWeatherMapper mapper,
+        [FromServices] IServiceScopeFactory scopeFactory)
     {
         try
         {

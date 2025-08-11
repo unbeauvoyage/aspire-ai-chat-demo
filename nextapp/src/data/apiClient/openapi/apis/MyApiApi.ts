@@ -16,11 +16,18 @@
 import * as runtime from '../runtime';
 import type {
   WeatherAnalysisDto,
+  WeatherForecastDto,
 } from '../models/index';
 import {
     WeatherAnalysisDtoFromJSON,
     WeatherAnalysisDtoToJSON,
+    WeatherForecastDtoFromJSON,
+    WeatherForecastDtoToJSON,
 } from '../models/index';
+
+export interface AnalyzeWeatherRequest {
+    weatherForecastDto: Array<WeatherForecastDto>;
+}
 
 /**
  * 
@@ -29,10 +36,19 @@ export class MyApiApi extends runtime.BaseAPI {
 
     /**
      */
-    async analyzeWeatherRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async analyzeWeatherRaw(requestParameters: AnalyzeWeatherRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        if (requestParameters['weatherForecastDto'] == null) {
+            throw new runtime.RequiredError(
+                'weatherForecastDto',
+                'Required parameter "weatherForecastDto" was null or undefined when calling analyzeWeather().'
+            );
+        }
+
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
 
 
         let urlPath = `/weatherforecast/analyze`;
@@ -42,6 +58,7 @@ export class MyApiApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: requestParameters['weatherForecastDto']!.map(WeatherForecastDtoToJSON),
         }, initOverrides);
 
         return new runtime.VoidApiResponse(response);
@@ -49,8 +66,8 @@ export class MyApiApi extends runtime.BaseAPI {
 
     /**
      */
-    async analyzeWeather(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.analyzeWeatherRaw(initOverrides);
+    async analyzeWeather(requestParameters: AnalyzeWeatherRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.analyzeWeatherRaw(requestParameters, initOverrides);
     }
 
     /**

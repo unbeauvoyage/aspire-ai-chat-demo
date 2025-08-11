@@ -1,0 +1,148 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "MyApi | v1",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/weatherforecast": {
+      "get": {
+        "tags": [
+          "WeatherHandlers"
+        ],
+        "summary": "Get weather forecast",
+        "description": "Get weather forecast data for the next 5 days.",
+        "operationId": "GetWeatherForecast",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WeatherForecastDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/weatherforecast/analyze": {
+      "post": {
+        "tags": [
+          "MyApi"
+        ],
+        "operationId": "AnalyzeWeather",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WeatherForecastDto"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/weatheranalysis/latest": {
+      "get": {
+        "tags": [
+          "MyApi"
+        ],
+        "summary": "Get latest weather analysis",
+        "operationId": "GetLatestWeatherAnalysis",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeatherAnalysisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "WeatherAnalysisDto": {
+        "required": [
+          "id",
+          "createdAt",
+          "analysis"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "analysis": {
+            "type": "string"
+          }
+        }
+      },
+      "WeatherForecastDto": {
+        "required": [
+          "date",
+          "temperatureC",
+          "temperatureF",
+          "summary"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "temperatureC": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "temperatureF": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "iconD": {
+            "type": "string",
+            "default": null,
+            "nullable": true
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "WeatherHandlers"
+    },
+    {
+      "name": "MyApi"
+    }
+  ]
+}
