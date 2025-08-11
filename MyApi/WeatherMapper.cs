@@ -3,6 +3,7 @@ namespace MyApi;
 public interface IWeatherMapper
 {
     WeatherForecastDto ToDto(WeatherForecast source);
+    WeatherAnalysisDto ToDto(WeatherAnalysis source);
 }
 
 public class WeatherMapper : IWeatherMapper
@@ -14,6 +15,15 @@ public class WeatherMapper : IWeatherMapper
             TemperatureC: source.TemperatureC,
             TemperatureF: source.TemperatureF,
             Summary: source.Summary
+        );
+    }
+
+    public WeatherAnalysisDto ToDto(WeatherAnalysis source)
+    {
+        return new WeatherAnalysisDto(
+            Id: source.Id,
+            CreatedAt: source.CreatedAt,
+            Analysis: source.Analysis
         );
     }
 }

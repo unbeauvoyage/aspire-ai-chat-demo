@@ -2,6 +2,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -118,6 +119,21 @@ app.MapPost("/weatherforecast/analyze", async (
     var analysisText = await analysis.AnalyzeAsync(list, ct);
     return Results.Ok(new { analysis = analysisText });
 }).WithName("AnalyzeWeather");
+
+// New: Get latest weather analysis
+app.MapGet("/weatheranalysis/latest", async (MyApi.AppDbContext db, MyApi.IWeatherMapper mapper) =>
+{
+    var latest = await db.WeatherAnalyses
+        .OrderByDescending(a => a.CreatedAt)
+        .FirstOrDefaultAsync();
+    if (latest is null) return Results.NotFound();
+    return Results.Ok(mapper.ToDto(latest));
+})
+.WithName("GetLatestWeatherAnalysis")
+.WithSummary("Get latest weather analysis")
+.Produces<MyApi.WeatherAnalysisDto>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status404NotFound)
+.WithOpenApi();
 
 app.Run();
 

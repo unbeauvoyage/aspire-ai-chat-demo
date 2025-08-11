@@ -54,11 +54,13 @@ var myapi = builder.AddProject<Projects.MyApi>("myapi")
                    .WaitFor(model)
                    .WithReference(weatherDb)
                    .WaitFor(weatherDb)
+                //    .WithHttpsEndpoint(port: 5100, name: "https")
+                //    .WithEndpoint("https", e => e.Port = 5100)
                    .WithExternalHttpEndpoints();
 
 builder.AddNpmApp("chatui", "../chatui")
        .WithNpmPackageInstallation()
-       .WithHttpEndpoint(env: "PORT")
+       .WithHttpEndpoint(port: 5101, env: "PORT")
        .WithReverseProxy(chatapi.GetEndpoint("http"))
        .WithExternalHttpEndpoints()
        .WithOtlpExporter()
@@ -67,12 +69,21 @@ builder.AddNpmApp("chatui", "../chatui")
 // --- YOUR CUSTOM NEXT.JS APP ---
 builder.AddNpmApp("nextapp", "../nextapp")
        .WithNpmPackageInstallation()
-       .WithHttpEndpoint(env: "PORT")
+       .WithHttpEndpoint(port: 5102, env: "PORT")
        .WithExternalHttpEndpoints()
        .WithEnvironment("NEXT_PUBLIC_API_BASE", myapi.GetEndpoint("http"))
        .WithReference(myapi)
        .WithOtlpExporter()
        .WithEnvironment("BROWSER", "none");
+
+// builder.AddNpmApp("nextapp", "../nextapp")
+//        .WithNpmPackageInstallation()
+//        .WithHttpEndpoint(env: "PORT")
+//        .WithExternalHttpEndpoints()
+//        .WithEnvironment("NEXT_PUBLIC_API_BASE", myapi.GetEndpoint("http"))
+//        .WithReference(myapi)
+//        .WithOtlpExporter()
+//        .WithEnvironment("BROWSER", "none");
 
 builder.Build().Run();
 

@@ -2,6 +2,7 @@ apis/MyApiApi.ts
 apis/WeatherHandlersApi.ts
 apis/index.ts
 index.ts
+models/WeatherAnalysisDto.ts
 models/WeatherForecastDto.ts
 models/index.ts
 runtime.ts

@@ -14,6 +14,13 @@
 
 
 import * as runtime from '../runtime';
+import type {
+  WeatherAnalysisDto,
+} from '../models/index';
+import {
+    WeatherAnalysisDtoFromJSON,
+    WeatherAnalysisDtoToJSON,
+} from '../models/index';
 
 /**
  * 
@@ -44,6 +51,35 @@ export class MyApiApi extends runtime.BaseAPI {
      */
     async analyzeWeather(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.analyzeWeatherRaw(initOverrides);
+    }
+
+    /**
+     * Get latest weather analysis
+     */
+    async getLatestWeatherAnalysisRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<WeatherAnalysisDto>> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/weatheranalysis/latest`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => WeatherAnalysisDtoFromJSON(jsonValue));
+    }
+
+    /**
+     * Get latest weather analysis
+     */
+    async getLatestWeatherAnalysis(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<WeatherAnalysisDto> {
+        const response = await this.getLatestWeatherAnalysisRaw(initOverrides);
+        return await response.value();
     }
 
 }
