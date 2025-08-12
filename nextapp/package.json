@@ -3,11 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm-run-all --parallel dev:next watch:api",
-    "dev:next": "next dev --turbopack",
+    "dev": "next dev --turbopack",
     "watch:api": "nodemon",
     "build": "next build",
-    "start": "npm-run-all --parallel dev:next watch:api",
+    "start": "next dev --turbopack",
     "start:prod": "next start",
     "lint": "next lint",
     "generate-api": "curl -k https://localhost:7012/openapi/v1.json -o /tmp/openapi.json && npx @openapitools/openapi-generator-cli generate -i /tmp/openapi.json -g typescript-fetch -o ./src/data/apiClient/openapi --additional-properties=useSingleRequestParameter=true",
