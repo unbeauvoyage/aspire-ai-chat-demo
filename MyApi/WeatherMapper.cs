@@ -15,8 +15,8 @@ public class WeatherMapper : IWeatherMapper
         return new WeatherForecastDto(
             Date: source.Date.ToString("yyyy-MM-dd"),
             TemperatureC: source.TemperatureC,
-            TemperatureF: source.TemperatureF,
-            Summary: source.Summary
+            TemperatureF: source.TemperatureF
+            // Summary: source.Summary
         );
     }
 

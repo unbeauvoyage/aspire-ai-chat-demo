@@ -108,8 +108,7 @@
         "required": [
           "date",
           "temperatureC",
-          "temperatureF",
-          "summary"
+          "temperatureF"
         ],
         "type": "object",
         "properties": {
@@ -126,9 +125,10 @@
           },
           "summary": {
             "type": "string",
+            "default": null,
             "nullable": true
           },
-          "iconD": {
+          "icon": {
             "type": "string",
             "default": null,
             "nullable": true

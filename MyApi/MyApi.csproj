@@ -21,14 +21,4 @@
     <ProjectReference Include="..\AIChat.ServiceDefaults\AIChat.ServiceDefaults.csproj" />
   </ItemGroup>
 
-  <!-- Generate TypeScript clients when OpenAPI spec changes -->
-  <Target Name="OpenApiToTs" 
-          AfterTargets="Build"
-          Inputs="$(MSBuildProjectDirectory)/openapi/v1.json"
-          Outputs="$(MSBuildProjectDirectory)/../nextapp/src/data/apiClient/openapi/.openapi-marker">
-    <Message Text="OpenAPI spec changed. Regenerating TypeScript clients..." Importance="high" />
-    <Exec Command="cd $(MSBuildProjectDirectory)/../nextapp &amp;&amp; npm run generate-api-from-file" />
-    <Touch Files="$(MSBuildProjectDirectory)/../nextapp/src/data/apiClient/openapi/.openapi-marker" AlwaysCreate="true" />
-  </Target>
-
 </Project>

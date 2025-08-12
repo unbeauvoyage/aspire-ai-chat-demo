@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "npm-run-all --parallel dev:next watch:api",
+    "dev:next": "next dev --turbopack",
+    "watch:api": "nodemon",
     "build": "next build",
-    "start": "next dev --turbopack",
+    "start": "npm-run-all --parallel dev:next watch:api",
     "start:prod": "next start",
     "lint": "next lint",
     "generate-api": "curl -k https://localhost:7012/openapi/v1.json -o /tmp/openapi.json && npx @openapitools/openapi-generator-cli generate -i /tmp/openapi.json -g typescript-fetch -o ./src/data/apiClient/openapi --additional-properties=useSingleRequestParameter=true",
-    "generate-api-from-file": "npx @openapitools/openapi-generator-cli generate -i ../MyApi/openapi/v1.json -g typescript-fetch -o ./src/data/apiClient/openapi --additional-properties=useSingleRequestParameter=true"
+    "generate-api-from-file": "npx @openapitools/openapi-generator-cli generate -i ../MyApi/openapi/v1.json -g typescript-fetch -o ./src/data/apiClient/openapi --additional-properties=useSingleRequestParameter=true",
+    "dotnet-build": "dotnet build ../MyApi/MyApi.csproj",
+    "regen-dtos": "npm-run-all -s dotnet-build generate-api-from-file"
   },
   "dependencies": {
     "next": "15.4.6",
@@ -28,5 +32,10 @@
     "npm-run-all": "^4.1.5",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "nodemonConfig": {
+    "watch": ["../MyApi/DTOs"],
+    "ext": "cs",
+    "exec": "npm run regen-dtos"
   }
 }

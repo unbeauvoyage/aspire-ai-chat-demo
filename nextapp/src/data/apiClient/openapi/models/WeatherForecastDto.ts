@@ -42,13 +42,13 @@ export interface WeatherForecastDto {
      * @type {string}
      * @memberof WeatherForecastDto
      */
-    summary: string | null;
+    summary?: string | null;
     /**
      * 
      * @type {string}
      * @memberof WeatherForecastDto
      */
-    iconD?: string | null;
+    icon?: string | null;
 }
 
 /**
@@ -58,7 +58,6 @@ export function instanceOfWeatherForecastDto(value: object): value is WeatherFor
     if (!('date' in value) || value['date'] === undefined) return false;
     if (!('temperatureC' in value) || value['temperatureC'] === undefined) return false;
     if (!('temperatureF' in value) || value['temperatureF'] === undefined) return false;
-    if (!('summary' in value) || value['summary'] === undefined) return false;
     return true;
 }
 
@@ -75,8 +74,8 @@ export function WeatherForecastDtoFromJSONTyped(json: any, ignoreDiscriminator: 
         'date': json['date'],
         'temperatureC': json['temperatureC'],
         'temperatureF': json['temperatureF'],
-        'summary': json['summary'],
-        'iconD': json['iconD'] == null ? undefined : json['iconD'],
+        'summary': json['summary'] == null ? undefined : json['summary'],
+        'icon': json['icon'] == null ? undefined : json['icon'],
     };
 }
 
@@ -95,7 +94,7 @@ export function WeatherForecastDtoToJSONTyped(value?: WeatherForecastDto | null,
         'temperatureC': value['temperatureC'],
         'temperatureF': value['temperatureF'],
         'summary': value['summary'],
-        'iconD': value['iconD'],
+        'icon': value['icon'],
     };
 }
 
