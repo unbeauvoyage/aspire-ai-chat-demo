@@ -18,4 +18,9 @@ export function weatherQuery() {
   } as const;
 }
 
+export async function fetchWeatherForecast() {
+  const api = createWeatherApi();
+  return api.getWeatherForecast();
+}
+
 
