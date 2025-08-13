@@ -1,5 +1,6 @@
 namespace MyApi;
 
+
 public interface IWeatherMapper
 {
     WeatherForecastDto ToDto(WeatherForecast source);

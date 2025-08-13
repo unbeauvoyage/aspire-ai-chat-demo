@@ -12,7 +12,7 @@ public static class WeatherEndpoints
            .WithName("GetWeatherForecast")
            .WithSummary("Get weather forecast")
            .WithDescription("Get weather forecast data for the next 5 days.")
-           .Produces<MyApi.WeatherForecastDto[]>(StatusCodes.Status200OK)
+            .Produces<MyApi.WeatherForecastDto[]>(StatusCodes.Status200OK)
            .WithOpenApi();
 
         app.MapPost("/weatherforecast/analyze", async (
@@ -46,11 +46,11 @@ public static class WeatherEndpoints
     // Handlers for complex GET
     public static class WeatherHandlers
     {
-        public static Results<Ok<MyApi.WeatherForecastDto[]>, ProblemHttpResult> GetWeatherForecast(
-            [FromServices] MyApi.AppDbContext db,
+        public static Results<Ok<WeatherForecastDto[]>, ProblemHttpResult> GetWeatherForecast(
+            [FromServices] AppDbContext db,
             HttpContext http,
             [FromServices] ILoggerFactory loggerFactory,
-            [FromServices] MyApi.IWeatherMapper mapper,
+            [FromServices] IWeatherMapper mapper,
             [FromServices] IServiceScopeFactory scopeFactory)
         {
             try

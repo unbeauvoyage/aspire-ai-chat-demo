@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace MyApi;
+namespace MyApi.Data.Configurations;
 
 public class WeatherAnalysisConfig : IEntityTypeConfiguration<MyApi.WeatherAnalysis>
 {

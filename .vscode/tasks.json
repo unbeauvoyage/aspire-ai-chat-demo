@@ -6,12 +6,61 @@
       "command": "dotnet",
       "type": "process",
       "args": [
+        "watch",
         "build",
-        "${workspaceFolder}/AIChat.AppHost/AIChat.AppHost.csproj",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary"
       ],
-      "problemMatcher": "$msCompile"
+      "options": {
+        "cwd": "${workspaceFolder}/AIChat.AppHost"
+      },
+      "isBackground": true,
+      "problemMatcher": [
+        "$msCompile",
+        {
+          "owner": "dotnet",
+          "fileLocation": [
+            "autoDetect",
+            "${workspaceFolder}"
+          ],
+          "pattern": [
+            {
+              "regexp": "^(.*):(\\d+):(\\d+): (warning|error) (\\w+): (.*)$",
+              "file": 1,
+              "line": 2,
+              "column": 3,
+              "severity": 4,
+              "code": 5,
+              "message": 6
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".*",
+            "endsPattern": "(Build succeeded\\.|Waiting for a file to change)"
+          }
+        }
+      ],
+      "group": { "kind": "build", "isDefault": true }
     }
   ]
 }
+
+
+// {
+//   "version": "2.0.0",
+//   "tasks": [
+//     {
+//       "label": "build",
+//       "command": "dotnet",
+//       "type": "process",
+//       "args": [
+//         "build",
+//         "${workspaceFolder}/AIChat.AppHost/AIChat.AppHost.csproj",
+//         "/property:GenerateFullPaths=true",
+//         "/consoleloggerparameters:NoSummary"
+//       ],
+//       "problemMatcher": "$msCompile"
+//     }
+//   ]
+// }

@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "npm-run-all -p --race dev:next watch:api",
+    "dev:next": "next dev --turbopack",
     "watch:api": "nodemon",
     "build": "next build",
     "start": "next dev --turbopack",
@@ -36,10 +37,9 @@
   },
   "nodemonConfig": {
     "watch": [
-      "../MyApi/Dtos",
-      "../MyApi/Presentation/Endpoints"
+      "../MyApi/openapi"
     ],
-    "ext": "cs",
-    "exec": "npm run regen-dtos"
+    "ext": "json",
+    "exec": "npm run generate-api-from-file"
   }
 }
