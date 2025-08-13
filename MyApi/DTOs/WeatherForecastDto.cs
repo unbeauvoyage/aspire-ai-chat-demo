@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace MyApi.DTOs;
+namespace MyApi;
 
 public record WeatherForecastDto(
     [property: Required] string Date, 

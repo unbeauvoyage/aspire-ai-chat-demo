@@ -36,7 +36,8 @@
   },
   "nodemonConfig": {
     "watch": [
-      "../MyApi/DTOs"
+      "../MyApi/Dtos",
+      "../MyApi/Presentation/Endpoints"
     ],
     "ext": "cs",
     "exec": "npm run regen-dtos"
