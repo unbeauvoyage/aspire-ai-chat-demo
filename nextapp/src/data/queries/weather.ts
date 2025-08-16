@@ -15,6 +15,11 @@ export function weatherQuery() {
   return {
     queryKey: ["weather"],
     queryFn: () => api.getWeatherForecast(),
+    // Prevent client refetch on mount after SSR hydration
+    staleTime: 1000 * 60 * 5,
+    // refetchOnMount: false,
+    // refetchOnWindowFocus: false,
+    // refetchOnReconnect: false,
   } as const;
 }
 

@@ -22,18 +22,18 @@
   </ItemGroup>
 
     <!-- Only when dotnet watch is running -->
-  <ItemGroup Condition="'$(DotNetWatchBuild)'=='true'">
+  <!-- <ItemGroup Condition="'$(DotNetWatchBuild)'=='true'"> -->
     <!-- 1) Stop watching all code/resources by default -->
-    <Compile Update="**/*.cs" Watch="false" />
-    <EmbeddedResource Update="**/*" Watch="false" />
+    <!-- <Compile Update="**/*.cs" Watch="false" />
+    <EmbeddedResource Update="**/*" Watch="false" /> -->
 
     <!-- 2) Re-enable watching ONLY for these paths -->
-    <Watch Include="Dtos/**/*.cs" />
+    <!-- <Watch Include="Dtos/**/*.cs" />
     <Watch Include="Presentation/**/*.cs" />
-    <Watch Include="Mappers/**/*.cs" />
+    <Watch Include="Mappers/**/*.cs" /> -->
     <!-- <Watch Include="Program.cs" /> -->
     <!-- add more: <Watch Include="Features/Orders/**/*.cs" /> etc. -->
-  </ItemGroup>
+  <!-- </ItemGroup> -->
 
 
 </Project>
