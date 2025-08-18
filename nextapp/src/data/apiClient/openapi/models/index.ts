@@ -2,3 +2,4 @@
 /* eslint-disable */
 export * from './WeatherAnalysisDto';
 export * from './WeatherForecastDto';
+export * from './WeatherStudyRequest';

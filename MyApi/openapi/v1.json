@@ -30,6 +30,27 @@
         }
       }
     },
+    "/weatherforecast/generate": {
+      "get": {
+        "tags": [
+          "WeatherHandlers"
+        ],
+        "summary": "Generate a plausible multi-day forecast using Semantic Kernel",
+        "operationId": "GenerateWeatherForecast",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/weatherforecast/analyze": {
       "post": {
         "tags": [
@@ -76,6 +97,38 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/weatherforecast/study": {
+      "post": {
+        "tags": [
+          "WeatherHandlers"
+        ],
+        "summary": "Interactive weather study using Semantic Kernel",
+        "operationId": "WeatherStudy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeatherStudyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
           }
         }
       }
@@ -129,6 +182,25 @@
             "nullable": true
           },
           "icon": {
+            "type": "string",
+            "default": null,
+            "nullable": true
+          }
+        }
+      },
+      "WeatherStudyRequest": {
+        "required": [
+          "forecasts"
+        ],
+        "type": "object",
+        "properties": {
+          "forecasts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeatherForecastDto"
+            }
+          },
+          "userPrompt": {
             "type": "string",
             "default": null,
             "nullable": true

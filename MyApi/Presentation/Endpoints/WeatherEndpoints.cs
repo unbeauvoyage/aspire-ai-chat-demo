@@ -15,6 +15,12 @@ public static class WeatherEndpoints
             .Produces<MyApi.WeatherForecastDto[]>(StatusCodes.Status200OK)
            .WithOpenApi();
 
+        app.MapGet("/weatherforecast/generate", WeatherHandlers.GenerateForecast)
+           .WithName("GenerateWeatherForecast")
+           .WithSummary("Generate a plausible multi-day forecast using Semantic Kernel")
+           .Produces<string>(StatusCodes.Status200OK)
+           .WithOpenApi();
+
         app.MapPost("/weatherforecast/analyze", async (
             [FromServices] MyApi.WeatherAnalysisService analysis,
             [FromBody] IEnumerable<MyApi.WeatherForecastDto> body,
@@ -41,6 +47,13 @@ public static class WeatherEndpoints
         .Produces<MyApi.WeatherAnalysisDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .WithOpenApi();
+
+        app.MapPost("/weatherforecast/study", WeatherHandlers.Study)
+           .WithName("WeatherStudy")
+           .WithSummary("Interactive weather study using Semantic Kernel")
+           .Produces<object>(StatusCodes.Status200OK)
+           .Produces(StatusCodes.Status400BadRequest)
+           .WithOpenApi();
     }
 
     // Handlers for complex GET
@@ -88,6 +101,36 @@ public static class WeatherEndpoints
             {
                 return TypedResults.Problem("An error occurred while processing your request.");
             }
+        }
+
+        public static async Task<IResult> GenerateForecast([FromServices] MyApi.WeatherAnalysisService analysis, CancellationToken ct)
+        {
+            var json = await analysis.GenerateForecastAsync(ct: ct);
+            return TypedResults.Ok(json);
+        }
+
+        public static async Task<IResult> Study(
+            [FromServices] MyApi.WeatherAnalysisService analysis,
+            [FromServices] IServiceProvider sp,
+            [FromBody] MyApi.WeatherStudyRequest request,
+            CancellationToken ct)
+        {
+            if (request.Forecasts is null || request.Forecasts.Count == 0)
+                return TypedResults.BadRequest("No forecasts supplied");
+
+            // LLM intro via Semantic Kernel
+            var text = await analysis.StudyIntroAsync(request.Forecasts, request.UserPrompt, ct);
+
+            // Attach available SK plugin function names for the client to choose from
+            var availableFunctions = new[]
+            {
+                "summarize_trends",
+                "suggest_outfit",
+                "plan_outdoor_activity",
+                "pack_travel_list"
+            };
+
+            return TypedResults.Ok(new { llmAnalysis = text, availableFunctions });
         }
     }
 }

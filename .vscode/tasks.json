@@ -2,46 +2,40 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build",
-      "command": "dotnet",
-      "type": "process",
-      "args": [
-        "watch",
-        "build",
-        "/property:GenerateFullPaths=true",
-        "/consoleloggerparameters:NoSummary"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}/AIChat.AppHost"
-      },
-      "isBackground": true,
-      "problemMatcher": [
-        "$msCompile",
-        {
-          "owner": "dotnet",
-          "fileLocation": [
-            "autoDetect",
-            "${workspaceFolder}"
-          ],
-          "pattern": [
-            {
-              "regexp": "^(.*):(\\d+):(\\d+): (warning|error) (\\w+): (.*)$",
-              "file": 1,
-              "line": 2,
-              "column": 3,
-              "severity": 4,
-              "code": 5,
-              "message": 6
-            }
-          ],
-          "background": {
-            "activeOnStart": true,
-            "beginsPattern": ".*",
-            "endsPattern": "(Build succeeded\\.|Waiting for a file to change)"
-          }
-        }
-      ],
-      "group": { "kind": "build", "isDefault": true }
+        "label": "build",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "build",
+            "${workspaceFolder}/aspire-ai-chat-demo.sln",
+            "/property:GenerateFullPaths=true",
+            "/consoleloggerparameters:NoSummary;ForceNoAlign"
+        ],
+        "problemMatcher": "$msCompile"
+    },
+    {
+        "label": "publish",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "publish",
+            "${workspaceFolder}/aspire-ai-chat-demo.sln",
+            "/property:GenerateFullPaths=true",
+            "/consoleloggerparameters:NoSummary;ForceNoAlign"
+        ],
+        "problemMatcher": "$msCompile"
+    },
+    {
+        "label": "watch",
+        "command": "dotnet",
+        "type": "process",
+        "args": [
+            "watch",
+            "run",
+            "--project",
+            "${workspaceFolder}/aspire-ai-chat-demo.sln"
+        ],
+        "problemMatcher": "$msCompile"
     }
   ]
 }

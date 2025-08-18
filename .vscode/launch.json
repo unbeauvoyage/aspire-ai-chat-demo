@@ -1,55 +1,55 @@
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Aspire AppHost (https)",
-      "type": "dotnet",
-      "request": "launch",
-      "projectPath": "${workspaceFolder}/AIChat.AppHost/AIChat.AppHost.csproj",
-      "launchConfiguration": "https",          // picks the "https" profile from launchSettings.json
-      "preLaunchTask": "build"                  // optional
-    }
-  ]
-}
-
-
 // {
 //   "version": "0.2.0",
 //   "configurations": [
 //     {
 //       "name": "Aspire AppHost (https)",
-//       "type": "coreclr",
+//       "type": "dotnet",
 //       "request": "launch",
-//       "preLaunchTask": "build",
-//       "program": "${workspaceFolder}/AIChat.AppHost/bin/Debug/net9.0/AIChat.AppHost.dll",
-//       "args": [],
-//       "cwd": "${workspaceFolder}/AIChat.AppHost",
-//       "stopAtEntry": false,
-//       "serverReadyAction": {
-//         "action": "openExternally",
-//         "pattern": "Now listening on: (https?://\\S+)"
-//       },
-//       "env": {
-//         "ASPNETCORE_ENVIRONMENT": "Development",
-//         "DOTNET_ENVIRONMENT": "Development",
-//         "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:21099",
-//         "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22098",
-//         "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
-//       },
-//       "launchBrowser": {
-//         "enabled": true,
-//         "args": "${auto-detect-url}",
-//         "windows": {
-//           "command": "cmd.exe",
-//           "args": "/C start ${auto-detect-url}"
-//         },
-//         "osx": {
-//           "command": "open"
-//         },
-//         "linux": {
-//           "command": "xdg-open"
-//         }
-//       }
+//       "projectPath": "${workspaceFolder}/AIChat.AppHost/AIChat.AppHost.csproj",
+//       // "launchConfiguration": "https",          // picks the "https" profile from launchSettings.json
+//       "preLaunchTask": "build"                  // optional
 //     }
 //   ]
 // }
+
+
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Aspire AppHost (https)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/AIChat.AppHost/bin/Debug/net9.0/AIChat.AppHost.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/AIChat.AppHost",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Now listening on: (https?://\\S+)"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
+        "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:21099",
+        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22098",
+        "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
+      },
+      "launchBrowser": {
+        "enabled": false,
+        "args": "${auto-detect-url}",
+        "windows": {
+          "command": "cmd.exe",
+          "args": "/C start ${auto-detect-url}"
+        },
+        "osx": {
+          "command": "open"
+        },
+        "linux": {
+          "command": "xdg-open"
+        }
+      }
+    }
+  ]
+}

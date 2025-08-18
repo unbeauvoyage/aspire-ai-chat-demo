@@ -16,16 +16,56 @@
 import * as runtime from '../runtime';
 import type {
   WeatherForecastDto,
+  WeatherStudyRequest,
 } from '../models/index';
 import {
     WeatherForecastDtoFromJSON,
     WeatherForecastDtoToJSON,
+    WeatherStudyRequestFromJSON,
+    WeatherStudyRequestToJSON,
 } from '../models/index';
+
+export interface WeatherStudyOperationRequest {
+    weatherStudyRequest: WeatherStudyRequest;
+}
 
 /**
  * 
  */
 export class WeatherHandlersApi extends runtime.BaseAPI {
+
+    /**
+     * Generate a plausible multi-day forecast using Semantic Kernel
+     */
+    async generateWeatherForecastRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<string>> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+
+        let urlPath = `/weatherforecast/generate`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        }, initOverrides);
+
+        if (this.isJsonMime(response.headers.get('content-type'))) {
+            return new runtime.JSONApiResponse<string>(response);
+        } else {
+            return new runtime.TextApiResponse(response) as any;
+        }
+    }
+
+    /**
+     * Generate a plausible multi-day forecast using Semantic Kernel
+     */
+    async generateWeatherForecast(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<string> {
+        const response = await this.generateWeatherForecastRaw(initOverrides);
+        return await response.value();
+    }
 
     /**
      * Get weather forecast data for the next 5 days.
@@ -55,6 +95,49 @@ export class WeatherHandlersApi extends runtime.BaseAPI {
      */
     async getWeatherForecast(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<WeatherForecastDto>> {
         const response = await this.getWeatherForecastRaw(initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Interactive weather study using Semantic Kernel
+     */
+    async weatherStudyRaw(requestParameters: WeatherStudyOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<any>> {
+        if (requestParameters['weatherStudyRequest'] == null) {
+            throw new runtime.RequiredError(
+                'weatherStudyRequest',
+                'Required parameter "weatherStudyRequest" was null or undefined when calling weatherStudy().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+
+        let urlPath = `/weatherforecast/study`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: WeatherStudyRequestToJSON(requestParameters['weatherStudyRequest']),
+        }, initOverrides);
+
+        if (this.isJsonMime(response.headers.get('content-type'))) {
+            return new runtime.JSONApiResponse<any>(response);
+        } else {
+            return new runtime.TextApiResponse(response) as any;
+        }
+    }
+
+    /**
+     * Interactive weather study using Semantic Kernel
+     */
+    async weatherStudy(requestParameters: WeatherStudyOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<any> {
+        const response = await this.weatherStudyRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

@@ -4,5 +4,6 @@ apis/index.ts
 index.ts
 models/WeatherAnalysisDto.ts
 models/WeatherForecastDto.ts
+models/WeatherStudyRequest.ts
 models/index.ts
 runtime.ts
