@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 // Publish this as a Docker Compose application
@@ -32,8 +34,11 @@ else
 var pg = builder.AddPostgres("pg")
                 .WithDataVolume(builder.ExecutionContext.IsPublishMode ? "pgvolume" : null)
                 .WithPgAdmin();
+
 var conversationsDb = pg.AddDatabase("conversations");
 var weatherDb = pg.AddDatabase("weather");
+
+
 
 // Redis is used to store and broadcast the live message stream
 // so that multiple clients can connect to the same conversation.
@@ -65,11 +70,15 @@ builder.AddNpmApp("chatui", "../chatui")
        .WithEnvironment("BROWSER", "none");
 
 // --- YOUR CUSTOM NEXT.JS APP ---
+var weatherConnectionString = pg.Resource.ConnectionStringExpression;
+Console.WriteLine($"Weather DB Connection String: {weatherConnectionString}");
 builder.AddNpmApp("nextapp", "../nextapp")
        .WithNpmPackageInstallation()
        .WithHttpEndpoint(port: 5102, env: "PORT")
        .WithExternalHttpEndpoints()
        .WithEnvironment("NEXT_PUBLIC_API_BASE", myapi.GetEndpoint("http"))
+       .WithEnvironment("NEXT_PUBLIC_CONNECTION_STRING", weatherConnectionString)
+       .WithReference(weatherDb)
        .WithReference(myapi)
        .WithOtlpExporter()
        .WithEnvironment("BROWSER", "none");
