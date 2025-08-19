@@ -132,10 +132,93 @@
           }
         }
       }
+    },
+    "/study/start": {
+      "post": {
+        "tags": [
+          "MyApi"
+        ],
+        "summary": "Start a study session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStudyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/study/send": {
+      "post": {
+        "tags": [
+          "MyApi"
+        ],
+        "summary": "Send a message and get assistant reply",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "SendMessageRequest": {
+        "required": [
+          "sessionId",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "StartStudyRequest": {
+        "required": [
+          "topic"
+        ],
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string",
+            "default": null,
+            "nullable": true
+          },
+          "exam": {
+            "type": "string",
+            "default": null,
+            "nullable": true
+          }
+        }
+      },
       "WeatherAnalysisDto": {
         "required": [
           "id",

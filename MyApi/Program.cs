@@ -42,6 +42,7 @@ if (!isOpenApiGeneration)
             if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(modelId))
             {
                 var kb = Kernel.CreateBuilder();
+                kb.Services.AddLogging(services => services.AddConsole().SetMinimumLevel(LogLevel.Trace));
                 if ((provider ?? "").Equals("openai", StringComparison.OrdinalIgnoreCase))
                 {
                     kb.AddOpenAIChatCompletion(modelId!, apiKey!);
@@ -50,6 +51,7 @@ if (!isOpenApiGeneration)
                 var kernel = kb.Build();
                 builder.Services.AddSingleton(kernel);
                 builder.Services.AddSingleton<MyApi.WeatherAnalysisService>();
+                builder.Services.AddSingleton<MyApi.StudyService>();
             }
         }
         catch (Exception ex)
@@ -110,6 +112,7 @@ app.UseCors("AllowAll");
 
 // Register endpoints from Presentation layer
 MyApi.WeatherEndpoints.RegisterWeatherEndpoints(app);
+MyApi.StudyEndpoints.RegisterStudyEndpoints(app);
 
 app.Run();
 
