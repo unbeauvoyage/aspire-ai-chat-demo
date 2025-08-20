@@ -51,7 +51,7 @@ if (!isOpenApiGeneration)
                 var kernel = kb.Build();
                 builder.Services.AddSingleton(kernel);
                 builder.Services.AddSingleton<MyApi.WeatherAnalysisService>();
-                builder.Services.AddSingleton<MyApi.StudyService>();
+                builder.Services.AddScoped<MyApi.StudyService>();
             }
         }
         catch (Exception ex)
@@ -113,6 +113,7 @@ app.UseCors("AllowAll");
 // Register endpoints from Presentation layer
 MyApi.WeatherEndpoints.RegisterWeatherEndpoints(app);
 MyApi.StudyEndpoints.RegisterStudyEndpoints(app);
+MyApi.TutorEndpoints.RegisterTutorEndpoints(app);
 
 app.Run();
 

@@ -1,39 +1,46 @@
 using Microsoft.SemanticKernel;
-using System.Collections.Concurrent;
+using Microsoft.EntityFrameworkCore;
 
 namespace MyApi;
 
 public class StudyService
 {
     private readonly Kernel _kernel;
-    private readonly ConcurrentDictionary<Guid, List<StudyMessageDto>> _sessions = new();
+    private readonly AppDbContext _db;
 
-    public StudyService(Kernel kernel)
+    public StudyService(Kernel kernel, AppDbContext db)
     {
         _kernel = kernel;
+        _db = db;
     }
 
-    public StudySessionDto Start(string topic, string? level, string? exam)
+    public async Task<StudySessionDto> StartAsync(string topic, string? level, string? exam, CancellationToken ct)
     {
-        var id = Guid.NewGuid();
-        var messages = new List<StudyMessageDto>();
-        _sessions[id] = messages;
+        var session = new StudySession { Topic = topic };
+        _db.StudySessions.Add(session);
 
-        var intro = $"We will study {topic}. Ask concise questions to learn the user's current level and goals. If an exam is mentioned (e.g., {exam}), gather format and resources. Keep messages short.";
-        messages.Add(new("assistant", intro, DateTime.UtcNow));
-        return new(id, topic, messages);
+        var intro = $"We will study {topic}. Ask ALL of these in ONE question: user's current level, their goal, exam (if any). After their reply, proceed directly to teaching without further meta-questions. If exam is given (e.g., {exam}), use that exam's official format for questions. Keep one clear multi-part question now.";
+        _db.StudyMessages.Add(new StudyMessage { SessionId = session.Id, Role = "assistant", Content = intro });
+        await _db.SaveChangesAsync(ct);
+
+        return await GetSessionDtoAsync(session.Id, ct);
     }
 
     public async Task<StudySessionDto> SendAsync(Guid sessionId, string userMessage, CancellationToken ct)
     {
-        if (!_sessions.TryGetValue(sessionId, out var messages))
-        {
-            throw new InvalidOperationException("Session not found");
-        }
-        messages.Add(new("user", userMessage, DateTime.UtcNow));
+        var exists = await _db.StudySessions.FindAsync(new object?[] { sessionId }, ct) != null;
+        if (!exists) throw new InvalidOperationException("Session not found");
 
+        _db.StudyMessages.Add(new StudyMessage { SessionId = sessionId, Role = "user", Content = userMessage, TimestampUtc = DateTime.UtcNow });
+        await _db.SaveChangesAsync(ct);
+
+        var messages = await _db.StudyMessages.Where(m => m.SessionId == sessionId).OrderBy(m => m.Id).ToListAsync(ct);
         var history = string.Join("\n", messages.Select(m => $"{m.Role.ToUpperInvariant()}: {m.Content}"));
-        var prompt = $@"You are a coaching assistant. Continue the dialog to assess user's current level, aim, and exam details if any. Be brief, ask one question at a time.
+
+        var prompt = $@"You are a decisive study coach. Based on the user's single reply, immediately begin teaching.
+- If an exam type (e.g., TOEFL) is detected, generate exercises strictly in that exam's format and scoring style.
+- Otherwise, infer level and objective, pick a syllabus and start with a short teaching chunk and 3-5 questions.
+- No further meta-questions about preferences; pick a path and proceed.
 
 Conversation so far:
 {history}
@@ -41,9 +48,20 @@ Conversation so far:
 ASSISTANT:";
 
         var reply = await _kernel.InvokePromptAsync<string>(prompt, cancellationToken: ct) ?? string.Empty;
-        messages.Add(new("assistant", reply.Trim(), DateTime.UtcNow));
-        var topic = messages.FirstOrDefault()?.Content.Contains("study") == true ? "study" : null;
-        return new(sessionId, topic, messages);
+        _db.StudyMessages.Add(new StudyMessage { SessionId = sessionId, Role = "assistant", Content = reply.Trim(), TimestampUtc = DateTime.UtcNow });
+        await _db.SaveChangesAsync(ct);
+
+        return await GetSessionDtoAsync(sessionId, ct);
+    }
+
+    private async Task<StudySessionDto> GetSessionDtoAsync(Guid sessionId, CancellationToken ct)
+    {
+        var msgs = await _db.StudyMessages.Where(m => m.SessionId == sessionId)
+            .OrderBy(m => m.Id)
+            .Select(m => new StudyMessageDto(m.Role, m.Content, m.TimestampUtc))
+            .ToListAsync(ct);
+        var topic = await _db.StudySessions.Where(s => s.Id == sessionId).Select(s => s.Topic).FirstOrDefaultAsync(ct);
+        return new StudySessionDto(sessionId, topic, msgs);
     }
 }
 

@@ -25,10 +25,10 @@
       "args": [],
       "cwd": "${workspaceFolder}/AIChat.AppHost",
       "stopAtEntry": false,
-      "serverReadyAction": {
-        "action": "openExternally",
-        "pattern": "Now listening on: (https?://\\S+)"
-      },
+      // "serverReadyAction": {
+      //   "action": "openExternally",
+      //   "pattern": "Now listening on: (https?://\\S+)"
+      // },
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_ENVIRONMENT": "Development",

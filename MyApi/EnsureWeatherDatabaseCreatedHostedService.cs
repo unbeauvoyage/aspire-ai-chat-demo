@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace MyApi;
 
 public class EnsureWeatherDatabaseCreatedHostedService(IServiceProvider serviceProvider, ILogger<EnsureWeatherDatabaseCreatedHostedService> logger) : BackgroundService
@@ -9,6 +11,8 @@ public class EnsureWeatherDatabaseCreatedHostedService(IServiceProvider serviceP
         {
             using var scope = serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // Dev-only reset: ensure schema matches current model without migrations
+            await dbContext.Database.EnsureDeletedAsync(stoppingToken);
             await dbContext.Database.EnsureCreatedAsync(stoppingToken);
             logger.LogInformation("Weather database ensured");
         }

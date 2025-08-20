@@ -8,11 +8,12 @@ public static class StudyEndpoints
     {
         var group = app.MapGroup("/study").WithOpenApi();
 
-        group.MapPost("/start", (
+        group.MapPost("/start", async (
             [FromServices] MyApi.StudyService study,
-            [FromBody] MyApi.StartStudyRequest request) =>
+            [FromBody] MyApi.StartStudyRequest request,
+            CancellationToken ct) =>
         {
-            var session = study.Start(request.Topic, request.Level, request.Exam);
+            var session = await study.StartAsync(request.Topic, request.Level, request.Exam, ct);
             return Results.Ok(session);
         })
         .WithSummary("Start a study session");
