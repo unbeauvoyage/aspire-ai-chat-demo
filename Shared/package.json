@@ -1,0 +1,10 @@
+{
+    "name": "com.ai.shared-dtos",
+    "version": "0.0.1",
+    "displayName": "Shared DTOs",
+    "description": "Shared POCO DTOs for Master Tutor (netstandard2.0, Unity-friendly)",
+    "unity": "2021.3",
+    "author": {
+        "name": "Your Org"
+    }
+}

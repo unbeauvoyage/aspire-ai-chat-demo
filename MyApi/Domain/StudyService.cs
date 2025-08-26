@@ -14,7 +14,7 @@ public class StudyService
         _db = db;
     }
 
-    public async Task<StudySessionDto> StartAsync(string topic, string? level, string? exam, CancellationToken ct)
+    public async Task<Dtos.StudySessionDto> StartAsync(string topic, string? level, string? exam, CancellationToken ct)
     {
         var session = new StudySession { Topic = topic };
         _db.StudySessions.Add(session);
@@ -26,7 +26,7 @@ public class StudyService
         return await GetSessionDtoAsync(session.Id, ct);
     }
 
-    public async Task<StudySessionDto> SendAsync(Guid sessionId, string userMessage, CancellationToken ct)
+    public async Task<Dtos.StudySessionDto> SendAsync(Guid sessionId, string userMessage, CancellationToken ct)
     {
         var exists = await _db.StudySessions.FindAsync(new object?[] { sessionId }, ct) != null;
         if (!exists) throw new InvalidOperationException("Session not found");
@@ -54,14 +54,14 @@ ASSISTANT:";
         return await GetSessionDtoAsync(sessionId, ct);
     }
 
-    private async Task<StudySessionDto> GetSessionDtoAsync(Guid sessionId, CancellationToken ct)
+    private async Task<Dtos.StudySessionDto> GetSessionDtoAsync(Guid sessionId, CancellationToken ct)
     {
         var msgs = await _db.StudyMessages.Where(m => m.SessionId == sessionId)
             .OrderBy(m => m.Id)
-            .Select(m => new StudyMessageDto(m.Role, m.Content, m.TimestampUtc))
+            .Select(m => new Dtos.StudyMessageDto { Role = m.Role, Content = m.Content, TimestampUtc = m.TimestampUtc })
             .ToListAsync(ct);
-        var topic = await _db.StudySessions.Where(s => s.Id == sessionId).Select(s => s.Topic).FirstOrDefaultAsync(ct);
-        return new StudySessionDto(sessionId, topic, msgs);
+        var topic = await _db.StudySessions.Where(s => s.Id == sessionId).Select(s => s.Topic).FirstOrDefaultAsync(ct) ?? string.Empty;
+        return new Dtos.StudySessionDto { Id = sessionId, Topic = topic, Messages = msgs };
     }
 }
 

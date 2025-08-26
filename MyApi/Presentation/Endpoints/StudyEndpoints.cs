@@ -10,7 +10,7 @@ public static class StudyEndpoints
 
         group.MapPost("/start", async (
             [FromServices] MyApi.StudyService study,
-            [FromBody] MyApi.StartStudyRequest request,
+            [FromBody] Shared.StartStudyRequest request,
             CancellationToken ct) =>
         {
             var session = await study.StartAsync(request.Topic, request.Level, request.Exam, ct);
@@ -20,7 +20,7 @@ public static class StudyEndpoints
 
         group.MapPost("/send", async (
             [FromServices] MyApi.StudyService study,
-            [FromBody] MyApi.SendMessageRequest request,
+            [FromBody] Shared.SendMessageRequest request,
             CancellationToken ct) =>
         {
             var session = await study.SendAsync(request.SessionId, request.Message, ct);

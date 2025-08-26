@@ -64,14 +64,41 @@ public static class TutorEndpoints
         {
             var concept = await db.Concepts.FindAsync(new object?[] { conceptId }, ct);
             if (concept is null) return Results.NotFound();
-            var prompt = $"Create 3 short Q&A pairs to test understanding of: '{concept.Title}'. Include fields question and answer. Return JSON array.";
+            var prompt = $$"""
+Create 3 multiple-choice reading comprehension questions based on the concept below. First craft a short passage (3-6 sentences) that exemplifies the concept. For each question, provide exactly 4 options labeled A), B), C), D). Mark the correct option by its letter.
+
+Concept title: {{concept.Title}}
+Concept notes: {{concept.Content}}
+
+Return JSON array where each item is:
+{
+  "passage": string,
+  "question": string,
+  "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+  "correct": "A" | "B" | "C" | "D"
+}
+""";
             var json = await kernel.InvokePromptAsync<string>(prompt, cancellationToken: ct) ?? "[]";
             try
             {
-                var items = JsonSerializer.Deserialize<List<QuizGen>>(json) ?? new();
+                var items = JsonSerializer.Deserialize<List<McqItem>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
                 foreach (var q in items)
                 {
-                    db.QuizQuestions.Add(new QuizQuestion { ConceptId = concept.Id, Question = q.question ?? string.Empty, Answer = q.answer ?? string.Empty });
+                    var opts = (q.options ?? new List<string>());
+                    string ComposeOptions()
+                    {
+                        if (opts.Count == 0) return string.Empty;
+                        return string.Join("\n", opts);
+                    }
+                    var composed = $"{q.passage}\n\n{q.question}\n{ComposeOptions()}".Trim();
+                    var answerLetter = (q.correct ?? "").Trim();
+                    if (string.IsNullOrEmpty(answerLetter) && opts.Count > 0)
+                    {
+                        // Try to infer from option starting with letter
+                        var first = opts.First();
+                        if (!string.IsNullOrEmpty(first)) answerLetter = first.Substring(0, 1);
+                    }
+                    db.QuizQuestions.Add(new QuizQuestion { ConceptId = concept.Id, Question = composed, Answer = answerLetter });
                 }
                 await db.SaveChangesAsync(ct);
             }
@@ -87,7 +114,7 @@ public static class TutorEndpoints
 
     private record CreateGoalRequest(string Description);
     private record ConceptGen(string? title, string? content);
-    private record QuizGen(string? question, string? answer);
+    private record McqItem(string? passage, string? question, List<string>? options, string? correct);
 }
 
 

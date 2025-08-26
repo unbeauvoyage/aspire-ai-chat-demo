@@ -1,0 +1,64 @@
+@startuml
+!theme plain
+
+package "Domain Model" {
+    class QuizQuestion {
+        +Id: int
+        +QuestionText: string
+        +Answer: string
+    }
+
+    class Student {
+        +Id: int
+        +Name: string
+        +Email: string
+    }
+
+    class StudyGoal {
+        +Id: int
+        +Description: string
+        +TargetDate: DateTime
+    }
+
+    class StudyMessage {
+        +Id: int
+        +Content: string
+        +Timestamp: DateTime
+    }
+
+    class StudySession {
+        +Id: int
+        +StartTime: DateTime
+        +EndTime: DateTime
+    }
+
+    class StudyService {
+        +...service methods...
+    }
+
+    class WeatherForecast {
+        +Id: int
+        +Date: DateOnly
+        +TemperatureC: int
+        +TemperatureF: int
+        +Summary: string
+    }
+
+    class WeatherAnalysis {
+        +Id: Guid
+        +CreatedAt: DateTime
+        +Analysis: string
+    }
+
+    class WeatherAnalysisService {
+        +...service methods...
+    }
+}
+
+Student "1" --o{ StudySession : participates
+StudySession "*" --o{ StudyMessage : has
+Student "1" --o{ StudyGoal : sets
+QuizQuestion "*" --o{ StudySession : usedIn
+WeatherAnalysis "*" --o{ WeatherForecast : analyzes
+
+@enduml

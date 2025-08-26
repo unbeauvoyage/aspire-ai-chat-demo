@@ -74,7 +74,7 @@ var weatherConnectionString = pg.Resource.ConnectionStringExpression;
 Console.WriteLine($"Weather DB Connection String: {weatherConnectionString}");
 builder.AddNpmApp("nextapp", "../nextapp")
        .WithNpmPackageInstallation()
-       .WithHttpEndpoint(port: 5102, env: "PORT")
+       .WithHttpEndpoint(port: 5103, env: "PORT")
        .WithExternalHttpEndpoints()
        .WithEnvironment("NEXT_PUBLIC_API_BASE", myapi.GetEndpoint("http"))
        .WithEnvironment("NEXT_PUBLIC_CONNECTION_STRING", weatherConnectionString)
@@ -83,4 +83,4 @@ builder.AddNpmApp("nextapp", "../nextapp")
        .WithOtlpExporter()
        .WithEnvironment("BROWSER", "none");
 
-builder.Build().Run();
+

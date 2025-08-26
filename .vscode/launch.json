@@ -32,8 +32,8 @@
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_ENVIRONMENT": "Development",
-        "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:21099",
-        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22098",
+        "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "http://localhost:21098",
+        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22097",
         "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true"
       },
       "launchBrowser": {

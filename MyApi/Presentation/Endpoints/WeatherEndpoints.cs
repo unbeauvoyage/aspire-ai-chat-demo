@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Shared;
 
 namespace MyApi;
 
@@ -12,7 +13,7 @@ public static class WeatherEndpoints
            .WithName("GetWeatherForecast")
            .WithSummary("Get weather forecast")
            .WithDescription("Get weather forecast data for the next 5 days.")
-            .Produces<MyApi.WeatherForecastDto[]>(StatusCodes.Status200OK)
+            .Produces<Shared.WeatherForecastDto[]>(StatusCodes.Status200OK)
            .WithOpenApi();
 
         app.MapGet("/weatherforecast/generate", WeatherHandlers.GenerateForecast)
@@ -23,14 +24,17 @@ public static class WeatherEndpoints
 
         app.MapPost("/weatherforecast/analyze", async (
             [FromServices] MyApi.WeatherAnalysisService analysis,
-            [FromBody] IEnumerable<MyApi.WeatherForecastDto> body,
+            [FromBody] IEnumerable<Shared.WeatherForecastDto> body,
+            [FromServices] MyApi.IWeatherMapper mapper,
             CancellationToken ct) =>
         {
             var list = body.ToList();
             if (list.Count == 0)
                 return Results.BadRequest("No forecasts supplied");
 
-            var analysisText = await analysis.AnalyzeAsync(list, ct);
+            // Convert DTOs to domain entities
+            var domainList = list.Select(mapper.ToDomain).ToList();
+            var analysisText = await analysis.AnalyzeAsync(domainList, ct);
             return Results.Ok(new { analysis = analysisText });
         }).WithName("AnalyzeWeather");
 
@@ -44,7 +48,7 @@ public static class WeatherEndpoints
         })
         .WithName("GetLatestWeatherAnalysis")
         .WithSummary("Get latest weather analysis")
-        .Produces<MyApi.WeatherAnalysisDto>(StatusCodes.Status200OK)
+        .Produces<Shared.WeatherAnalysisDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .WithOpenApi();
 
@@ -112,7 +116,7 @@ public static class WeatherEndpoints
         public static async Task<IResult> Study(
             [FromServices] MyApi.WeatherAnalysisService analysis,
             [FromServices] IServiceProvider sp,
-            [FromBody] MyApi.WeatherStudyRequest request,
+            [FromBody] Shared.WeatherStudyRequest request,
             CancellationToken ct)
         {
             if (request.Forecasts is null || request.Forecasts.Count == 0)

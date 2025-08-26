@@ -262,10 +262,6 @@
         }
       },
       "SendMessageRequest": {
-        "required": [
-          "sessionId",
-          "message"
-        ],
         "type": "object",
         "properties": {
           "sessionId": {
@@ -273,37 +269,29 @@
             "format": "uuid"
           },
           "message": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           }
         }
       },
       "StartStudyRequest": {
-        "required": [
-          "topic"
-        ],
         "type": "object",
         "properties": {
           "topic": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "level": {
             "type": "string",
-            "default": null,
             "nullable": true
           },
           "exam": {
             "type": "string",
-            "default": null,
             "nullable": true
           }
         }
       },
       "WeatherAnalysisDto": {
-        "required": [
-          "id",
-          "createdAt",
-          "analysis"
-        ],
         "type": "object",
         "properties": {
           "id": {
@@ -315,20 +303,21 @@
             "format": "date-time"
           },
           "analysis": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
+          },
+          "userPrompt": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
       "WeatherForecastDto": {
-        "required": [
-          "date",
-          "temperatureC",
-          "temperatureF"
-        ],
         "type": "object",
         "properties": {
           "date": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "temperatureC": {
             "type": "integer",
@@ -340,31 +329,30 @@
           },
           "summary": {
             "type": "string",
-            "default": null,
             "nullable": true
           },
           "icon": {
             "type": "string",
-            "default": null,
             "nullable": true
           }
         }
       },
       "WeatherStudyRequest": {
-        "required": [
-          "forecasts"
-        ],
         "type": "object",
         "properties": {
           "forecasts": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WeatherForecastDto"
-            }
+            },
+            "nullable": true
           },
           "userPrompt": {
             "type": "string",
-            "default": null,
+            "nullable": true
+          },
+          "purpose": {
+            "type": "string",
             "nullable": true
           }
         }
